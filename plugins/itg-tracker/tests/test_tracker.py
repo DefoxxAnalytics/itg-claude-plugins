@@ -62,6 +62,7 @@ def git(repo: Path, *args: str, when: datetime | None = None) -> str:
 def make_repo(path: Path, commits: list[datetime]) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     git(path, "init", "-q", "-b", "main")
+    git(path, "config", "user.email", "t@example.com")
     for number, when in enumerate(commits):
         (path / "f.txt").write_text(str(number), encoding="utf-8")
         git(path, "add", "f.txt")
@@ -363,3 +364,18 @@ def test_without_settings_pending_is_zero_and_gather_says_how_to_start(tmp_path,
     assert tracker.main(["--registry", str(missing), "--claude-dir", str(claude_dir), "gather"]) == 2
     assert "init" in capsys.readouterr().out
     assert not missing.exists()
+
+
+def test_only_the_person_s_own_commits_on_local_branches_are_read(world):
+    claude_dir, projects_root, _ = world
+    repo = make_repo(projects_root / "VSTX-Projects" / "Repo", [NOW - timedelta(minutes=30)])
+    subprocess.run(["git", "-C", str(repo), "-c", "user.name=o", "-c", "user.email=other@example.com",
+                    "commit", "-q", "--allow-empty", "-m", "someone else's change"], check=True, capture_output=True)
+    git(repo, "checkout", "-q", "-b", "fetched")
+    git(repo, "commit", "-q", "--allow-empty", "-m", "only on a remote branch", when=NOW - timedelta(minutes=10))
+    git(repo, "update-ref", "refs/remotes/origin/fetched", "HEAD")
+    git(repo, "checkout", "-q", "main")
+    git(repo, "branch", "-q", "-D", "fetched")
+    make_session(claude_dir, repo, NOW)
+    project = run_gather(world, since=TODAY)["projects"][0]
+    assert [commit["subject"] for commit in project["commits"]] == ["change 0"]

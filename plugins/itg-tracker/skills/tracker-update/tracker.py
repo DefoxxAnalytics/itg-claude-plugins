@@ -213,7 +213,13 @@ def project_of(cwd: str, registry: dict) -> tuple[str, Path, str] | None:
 
 
 def commits_since(repo: Path, since: datetime) -> list[dict]:
-    done = _git(repo, "log", "--all", f"--since={since.isoformat()}", f"--format=%h{FIELD}%cI{FIELD}%s")
+    """The person's own commits on local branches: what others pushed, or fetched branches, never reach the draft."""
+    configured = _git(repo, "config", "user.email")
+    email = configured.stdout.strip() if configured is not None and configured.returncode == 0 else ""
+    if not email:
+        return []
+    done = _git(repo, "log", "--branches", "--fixed-strings", f"--author={email}", f"--since={since.isoformat()}",
+                f"--format=%h{FIELD}%cI{FIELD}%s")
     if done is None or done.returncode != 0:
         return []
     found = []

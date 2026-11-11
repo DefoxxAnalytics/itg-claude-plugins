@@ -23,12 +23,16 @@ Arguments: none, or manual entries in the form `<project>: <status>`, separated 
 `tracker.py gather` exits with code 2 and says "No settings yet" when the user has none. Then set them up with the user, before anything else:
 
 1. **Ask, in one message:**
-   - where their project folders live (often `C:\Users\<them>\Documents\Projects`);
-   - which top-level folders there are work, and the list's Business for each (Corporate, Versatex, XLC, or FX / Foxx Construction). Only those folders are ever looked at. A single project inside a folder that is otherwise left out can be named on its own as `<FOLDER>\<project>`: everything in it counts as that one project, and its neighbours stay out;
+   - which folders hold their work, anywhere on the laptop: as many as they like, for example `C:\Users\<them>\Documents\Projects\Clients` and `D:\Dev`;
+   - for each folder, the list's Business (Corporate, Versatex, XLC, or FX / Foxx Construction);
+   - for each folder, whether it is a **folder of projects** (each folder inside it is a project) or **one project** on its own;
    - the short name they want in the People column.
 
-   Listing the folders' names to help them choose is fine. Never list or open anything inside them.
-2. **Save:** `python "${CLAUDE_SKILL_DIR}/tracker.py" init --projects-root "<folder>" --root "<FOLDER>=<Business>" --root ... --people "<name>"`. To add a folder or a single project later, edit `roots` in the settings file, for example `"DEF-Projects\\team-tools": "Corporate"`.
+   Only those folders are ever looked at. Listing folder names to help them choose is fine; never open anything inside them.
+2. **Save:** `python "${CLAUDE_SKILL_DIR}/tracker.py" init --folder "<path>=<Business>" --project "<path>=<Business>" ... --people "<name>"`.
+   - Use one `--folder` per folder of projects, and one `--project` per single project, both as full paths.
+   - Later changes: `tracker.py add-folder "<path>" --business <Business>`, with `--single` for one project, and `tracker.py remove-folder "<path>"`.
+   - Older settings that use `projects_root` and `roots` keep working unchanged.
 3. **Their SharePoint identity:** in step 2 below, the read also returns `me`. Run `python "${CLAUDE_SKILL_DIR}/tracker.py" person --name "<me.Title>" --id <me.Id>` and tell them who they are signed in as.
 4. **Rows they already have:** the first preview offers to match their projects with the list's existing rows. They decide.
 5. **The 17:30 task (optional):** offer it once, and set it up only on their yes: `pwsh -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}/schedule.ps1"`. It's a Windows scheduled task that opens Claude on weekdays at 17:30 when something is waiting to be posted. `schedule.ps1 -Remove` deletes it.

@@ -409,3 +409,78 @@ def test_a_named_project_folder_that_is_a_repo_reads_its_commits(world):
     project = run_gather(world, since=TODAY)["projects"][0]
     assert project["key"] == r"DEF-Projects\Team-tools"
     assert [commit["subject"] for commit in project["commits"]] == ["change 0"]
+
+
+def add_folders(registry_path: Path, folders: list[dict]) -> None:
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["folders"] = folders
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+
+
+def test_more_than_one_top_folder(world, tmp_path):
+    claude_dir, projects_root, registry_path = world
+    dev = tmp_path / "Dev"
+    add_folders(registry_path, [{"path": str(dev), "business": "Corporate", "kind": "projects"}])
+    make_session(claude_dir, projects_root / "VSTX-Projects" / "Alpha", NOW, "a.jsonl")
+    make_session(claude_dir, dev / "Beta", NOW, "b.jsonl")
+    make_session(claude_dir, dev, NOW, "c.jsonl")
+    make_session(claude_dir, tmp_path / "Elsewhere" / "Gamma", NOW, "d.jsonl")
+    result = run_gather(world, since=TODAY)
+    assert keys(result) == [r"Dev\Beta", r"VSTX-Projects\Alpha"]
+    business = {project["key"]: project["business"] for project in result["projects"]}
+    assert business == {r"Dev\Beta": "Corporate", r"VSTX-Projects\Alpha": "Versatex"}
+
+
+def test_a_folder_anywhere_can_be_one_project(world, tmp_path):
+    claude_dir, _, registry_path = world
+    tool = tmp_path / "OneDrive" / "Team-tool"
+    add_folders(registry_path, [{"path": str(tool), "business": "XLC", "kind": "project"}])
+    make_session(claude_dir, tool, NOW, "a.jsonl")
+    make_session(claude_dir, tool / "src", NOW, "b.jsonl")
+    make_session(claude_dir, tmp_path / "OneDrive" / "Private", NOW, "c.jsonl")
+    result = run_gather(world, since=TODAY)
+    assert keys(result) == ["Team-tool"]
+    assert result["projects"][0]["sessions"] == 2
+    assert Path(result["projects"][0]["path"]) == tool
+
+
+def test_settings_need_no_main_projects_folder(tmp_path):
+    claude_dir = tmp_path / "claude" / "projects"
+    claude_dir.mkdir(parents=True)
+    dev = tmp_path / "Dev"
+    registry = {"roots": {}, "projects": {}, "folders": [{"path": str(dev), "business": "Corporate", "kind": "projects"}]}
+    make_session(claude_dir, dev / "Beta", NOW)
+    result = tracker.gather(claude_dir, registry, since=TODAY, now=NOW)
+    assert [project["key"] for project in result["projects"]] == [r"Dev\Beta"]
+
+
+def test_cli_init_takes_folders_and_projects_anywhere(tmp_path):
+    path = tmp_path / "registry.json"
+    dev, tool = tmp_path / "Dev", tmp_path / "OneDrive" / "Team-tool"
+    code = tracker.main(["--registry", str(path), "init", "--folder", f"{dev}=Corporate", "--project", f"{tool}=XLC", "--people", "Ada"])
+    assert code == 0
+    saved = json.loads(path.read_text(encoding="utf-8"))
+    assert saved["projects_root"] == ""
+    assert saved["roots"] == {}
+    assert saved["folders"] == [{"path": str(dev), "business": "Corporate", "kind": "projects"},
+                                {"path": str(tool), "business": "XLC", "kind": "project"}]
+
+
+def test_cli_init_needs_at_least_one_work_folder(tmp_path, capsys):
+    path = tmp_path / "registry.json"
+    assert tracker.main(["--registry", str(path), "init", "--people", "Ada"]) == 1
+    assert not path.exists()
+
+
+def test_folders_can_be_added_and_removed_later(world, tmp_path, capsys):
+    claude_dir, _, registry_path = world
+    dev = tmp_path / "Dev"
+    assert tracker.main(["--registry", str(registry_path), "add-folder", str(dev), "--business", "Corporate"]) == 0
+    assert tracker.main(["--registry", str(registry_path), "add-folder", str(tmp_path / "Tool"), "--business", "XLC", "--single"]) == 0
+    assert tracker.main(["--registry", str(registry_path), "add-folder", r"relative\path", "--business", "XLC"]) == 1
+    saved = json.loads(registry_path.read_text(encoding="utf-8"))
+    assert saved["folders"] == [{"path": str(dev), "business": "Corporate", "kind": "projects"},
+                                {"path": str(tmp_path / "Tool"), "business": "XLC", "kind": "project"}]
+    assert tracker.main(["--registry", str(registry_path), "remove-folder", str(dev).upper()]) == 0
+    assert [folder["path"] for folder in json.loads(registry_path.read_text(encoding="utf-8"))["folders"]] == [str(tmp_path / "Tool")]
+    assert saved["roots"] == {"VSTX-Projects": "Versatex", "XLC-Projects": "XLC"}

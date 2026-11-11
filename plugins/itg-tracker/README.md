@@ -31,11 +31,13 @@ Or in two steps on any version: `/plugin marketplace add DefoxxAnalytics/itg-cla
 
 Run `/itg-tracker:tracker-update`, or ask Claude to "update the progress tracker". With no settings yet, it asks:
 
-- where your project folders live;
-- which top-level folders are work, and the Business each belongs to. A single project can also be named on its own, for example `DEF-Projects\team-tools`, without the rest of its folder;
+- which folders hold your work: as many as you like, anywhere on the laptop (for example `D:\Dev` and a OneDrive folder);
+- for each, the Business it belongs to, and whether it is a folder of projects or one project on its own;
 - the short name for the People column.
 
-It saves these to `~/.claude/tracker-update/registry.json`, and reads who you are from SharePoint for "Assigned to". It then offers to match your projects with rows already on the list.
+Only those folders are ever looked at, and your folders don't need to match anyone else's. It saves your answers to `~/.claude/tracker-update/registry.json`, and reads who you are from SharePoint for "Assigned to". It then offers to match your projects with rows already on the list.
+
+To change the folders later, ask Claude, or run `tracker.py add-folder "<path>" --business <Business>` (add `--single` for one project) and `tracker.py remove-folder "<path>"`.
 
 ## Every evening (optional)
 

@@ -1,7 +1,9 @@
 """Finds the work projects worked on in Claude Code, for the tracker-update skill.
 
-    python tracker.py init --projects-root DIR --root FOLDER=BUSINESS ... --people NAME
-                                               (FOLDER may also be FOLDER/PROJECT: that one project only)
+    python tracker.py init --folder PATH=BUSINESS ... --project PATH=BUSINESS ... --people NAME
+                                               (--folder: a folder of projects; --project: one project)
+    python tracker.py add-folder PATH --business B [--single]
+    python tracker.py remove-folder PATH
     python tracker.py person --name "Last, First" --id N
     python tracker.py gather [--since ISO]     projects with sessions since then, as JSON
     python tracker.py pending                  how many of them have something not yet posted
@@ -81,13 +83,38 @@ def load_registry(path: Path) -> dict:
     return registry
 
 
-def init_registry(path: Path, projects_root: str, roots: dict, people: str) -> None:
+def init_registry(path: Path, projects_root: str, roots: dict, people: str, folders: list[dict] | None = None) -> None:
     """A person's first settings, from the template; existing settings are never replaced."""
     if path.exists():
         raise FileExistsError(f"Settings already exist: {path}")
     registry = json.loads(TEMPLATE.read_text(encoding="utf-8"))
-    registry.update({"projects_root": projects_root, "roots": roots, "people_default": people, "projects": {}})
+    registry.update({"projects_root": projects_root, "roots": roots, "folders": folders or [], "people_default": people, "projects": {}})
     save_registry(path, registry)
+
+
+def folder_entry(path: str, business: str, single: bool) -> dict:
+    """A work folder for the settings; it must be a full path, such as D:\\Dev."""
+    if not PureWindowsPath(path).is_absolute():
+        raise ValueError(f"Give the full path of the folder, such as D:\\Dev: {path}")
+    return {"path": str(PureWindowsPath(path)), "business": business, "kind": PROJECT if single else PROJECTS}
+
+
+def add_folder(path: Path, folder: str, business: str, single: bool = False) -> None:
+    entry = folder_entry(folder, business, single)
+    registry = load_registry(path)
+    kept = [item for item in registry.get("folders", []) if item["path"].casefold() != entry["path"].casefold()]
+    registry["folders"] = kept + [entry]
+    save_registry(path, registry)
+
+
+def remove_folder(path: Path, folder: str) -> bool:
+    wanted = str(PureWindowsPath(folder)).casefold()
+    registry = load_registry(path)
+    folders = registry.get("folders", [])
+    kept = [item for item in folders if item["path"].casefold() != wanted]
+    registry["folders"] = kept
+    save_registry(path, registry)
+    return len(kept) != len(folders)
 
 
 def set_person(path: Path, name: str, user_id: int) -> None:
@@ -159,26 +186,52 @@ def resolve(registry: dict, key: str) -> tuple[str, dict | None] | None:
     return key, None
 
 
-def _below_root(path: PureWindowsPath, projects_root: PureWindowsPath, roots: dict) -> tuple[str, str, PureWindowsPath] | None:
-    """The key, business and folder of the project holding this path.
+PROJECTS, PROJECT = "projects", "project"
 
-    A root of one name ("VSTX-Projects") holds many projects: the path itself is the project, and the root alone is
-    none. A root of several names ("DEF-Projects/itg-claude-plugins") is one project: everything in it is that project,
-    and its neighbours are not looked at.
+
+def _inside(path: PureWindowsPath, folder: PureWindowsPath) -> bool:
+    return len(path.parts) >= len(folder.parts) and all(a.casefold() == b.casefold() for a, b in zip(path.parts, folder.parts))
+
+
+def work_folders(registry: dict) -> list[tuple[PureWindowsPath, str, str]]:
+    """Every work folder as (path, business, kind), most specific first.
+
+    A folder of kind "projects" holds projects: each path inside it is a project, the folder alone is none. A folder of
+    kind "project" is one project: everything in it is that project. The older settings, `roots` under
+    `projects_root`, mean the same: one name holds projects, several names ("DEF-Projects/tool") are one project.
     """
-    try:
-        relative = path.relative_to(projects_root)
-    except ValueError:
-        return None
-    named = sorted(((PureWindowsPath(root).parts, business) for root, business in roots.items()), key=lambda item: -len(item[0]))
-    for parts, business in named:
-        if len(relative.parts) < len(parts) or any(a.casefold() != b.casefold() for a, b in zip(relative.parts, parts)):
+    found = []
+    if registry.get("projects_root"):
+        projects_root = PureWindowsPath(registry["projects_root"])
+        for name, business in registry.get("roots", {}).items():
+            parts = PureWindowsPath(name).parts
+            found.append((projects_root.joinpath(*parts), business, PROJECT if len(parts) > 1 else PROJECTS))
+    for folder in registry.get("folders", []):
+        found.append((PureWindowsPath(folder["path"]), folder["business"], folder.get("kind", PROJECTS)))
+    return sorted(found, key=lambda item: -len(item[0].parts))
+
+
+def _place(path: PureWindowsPath, registry: dict) -> tuple[str, str, PureWindowsPath] | None:
+    """The key, business and folder of the project holding this path, or None when it is not work.
+
+    Keys are relative to `projects_root` when the project is under it (so older settings keep their keys), and
+    otherwise start at the work folder's own name ("Dev\\Beta" for a project in D:\\Dev).
+    """
+    projects_root = PureWindowsPath(registry["projects_root"]) if registry.get("projects_root") else None
+    for folder, business, kind in work_folders(registry):
+        if not _inside(path, folder):
             continue
-        if len(parts) > 1:
-            project = PureWindowsPath(*relative.parts[:len(parts)])
-            return str(project), business, projects_root / project
-        if len(relative.parts) >= 2:
-            return str(relative), business, path
+        if kind == PROJECT:
+            project = PureWindowsPath(*path.parts[:len(folder.parts)])
+        elif len(path.parts) > len(folder.parts):
+            project = path
+        else:
+            continue
+        if projects_root is not None and _inside(project, projects_root) and len(project.parts) > len(projects_root.parts):
+            key = PureWindowsPath(*project.parts[len(projects_root.parts):])
+        else:
+            key = PureWindowsPath(*project.parts[len(folder.parts) - 1:])
+        return str(key), business, project
     return None
 
 
@@ -209,15 +262,12 @@ def same_folder(one: Path, other: Path) -> bool:
 
 def project_of(cwd: str, registry: dict) -> tuple[str, Path, str] | None:
     """The project key, folder and business of a session's working folder, or None when it is not work."""
-    projects_root = PureWindowsPath(registry["projects_root"])
-    roots = registry["roots"]
-    folder = PureWindowsPath(cwd)
-    placed = _below_root(folder, projects_root, roots)
+    placed = _place(PureWindowsPath(cwd), registry)
     if placed is None:
         return None
     repo = repository(Path(cwd))
     if repo is not None:
-        repo_placed = _below_root(PureWindowsPath(repo), projects_root, roots)
+        repo_placed = _place(PureWindowsPath(repo), registry)
         if repo_placed is not None:
             return repo_placed[0], repo, repo_placed[1]
     return placed[0], Path(str(placed[2])), placed[1]
@@ -343,9 +393,17 @@ def main(arguments: list[str]) -> int:
     parser.add_argument("--claude-dir", type=Path, default=CLAUDE_PROJECTS)
     commands = parser.add_subparsers(dest="command", required=True)
     starting = commands.add_parser("init")
-    starting.add_argument("--projects-root", required=True)
+    starting.add_argument("--projects-root", default="")
     starting.add_argument("--root", action="append", default=[], metavar="FOLDER=BUSINESS")
+    starting.add_argument("--folder", action="append", default=[], metavar="PATH=BUSINESS")
+    starting.add_argument("--project", action="append", default=[], metavar="PATH=BUSINESS")
     starting.add_argument("--people", required=True)
+    adding = commands.add_parser("add-folder")
+    adding.add_argument("folder")
+    adding.add_argument("--business", required=True)
+    adding.add_argument("--single", action="store_true")
+    removing = commands.add_parser("remove-folder")
+    removing.add_argument("folder")
     naming = commands.add_parser("person")
     naming.add_argument("--name", required=True)
     naming.add_argument("--id", type=int, required=True)
@@ -369,10 +427,16 @@ def main(arguments: list[str]) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     registry_path = options.registry or default_registry_path()
     if options.command == "init":
-        roots = dict(item.split("=", 1) for item in options.root)
         try:
-            init_registry(registry_path, options.projects_root, roots, options.people)
-        except FileExistsError as error:
+            if options.root and not options.projects_root:
+                raise ValueError("--root needs --projects-root; use --folder with a full path instead")
+            if not (options.root or options.folder or options.project):
+                raise ValueError("Name at least one work folder: --folder PATH=BUSINESS or --project PATH=BUSINESS")
+            roots = dict(item.split("=", 1) for item in options.root)
+            folders = [folder_entry(*item.rsplit("=", 1), single=False) for item in options.folder]
+            folders += [folder_entry(*item.rsplit("=", 1), single=True) for item in options.project]
+            init_registry(registry_path, options.projects_root, roots, options.people, folders)
+        except (FileExistsError, ValueError, TypeError) as error:
             print(error)
             return 1
         print(f"Settings written to {registry_path}")
@@ -386,6 +450,16 @@ def main(arguments: list[str]) -> int:
     options.registry = registry_path
     if options.command == "person":
         set_person(registry_path, options.name, options.id)
+    elif options.command == "add-folder":
+        try:
+            add_folder(registry_path, options.folder, options.business, options.single)
+        except ValueError as error:
+            print(error)
+            return 1
+    elif options.command == "remove-folder":
+        if not remove_folder(registry_path, options.folder):
+            print(f"Not in the settings: {options.folder}")
+            return 1
     elif options.command in ("gather", "pending"):
         registry = load_registry(options.registry)
         since = parse_time(options.since) if options.since else None

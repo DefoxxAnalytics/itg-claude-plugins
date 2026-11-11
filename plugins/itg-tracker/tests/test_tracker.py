@@ -379,3 +379,33 @@ def test_only_the_person_s_own_commits_on_local_branches_are_read(world):
     make_session(claude_dir, repo, NOW)
     project = run_gather(world, since=TODAY)["projects"][0]
     assert [commit["subject"] for commit in project["commits"]] == ["change 0"]
+
+
+def test_a_setting_can_name_one_project_folder_without_its_neighbours(world):
+    claude_dir, projects_root, registry_path = world
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["roots"]["DEF-Projects/Team-tools"] = "Corporate"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    tools = projects_root / "DEF-Projects" / "Team-tools"
+    make_session(claude_dir, tools, NOW, "a.jsonl")
+    make_session(claude_dir, tools / "plugins" / "one", NOW, "b.jsonl")
+    make_session(claude_dir, projects_root / "DEF-Projects" / "Other", NOW, "c.jsonl")
+    make_session(claude_dir, projects_root / "DEF-Projects", NOW, "d.jsonl")
+    result = run_gather(world, since=TODAY)
+    assert keys(result) == [r"DEF-Projects\Team-tools"]
+    project = result["projects"][0]
+    assert project["business"] == "Corporate"
+    assert project["sessions"] == 2
+    assert Path(project["path"]) == tools
+
+
+def test_a_named_project_folder_that_is_a_repo_reads_its_commits(world):
+    claude_dir, projects_root, registry_path = world
+    registry = json.loads(registry_path.read_text(encoding="utf-8"))
+    registry["roots"][r"def-projects\team-tools"] = "Corporate"
+    registry_path.write_text(json.dumps(registry), encoding="utf-8")
+    repo = make_repo(projects_root / "DEF-Projects" / "Team-tools", [NOW - timedelta(minutes=5)])
+    make_session(claude_dir, repo / "plugins", NOW)
+    project = run_gather(world, since=TODAY)["projects"][0]
+    assert project["key"] == r"DEF-Projects\Team-tools"
+    assert [commit["subject"] for commit in project["commits"]] == ["change 0"]

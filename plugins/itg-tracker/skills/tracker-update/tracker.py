@@ -1,6 +1,7 @@
 """Finds the work projects worked on in Claude Code, for the tracker-update skill.
 
     python tracker.py init --projects-root DIR --root FOLDER=BUSINESS ... --people NAME
+                                               (FOLDER may also be FOLDER/PROJECT: that one project only)
     python tracker.py person --name "Last, First" --id N
     python tracker.py gather [--since ISO]     projects with sessions since then, as JSON
     python tracker.py pending                  how many of them have something not yet posted
@@ -158,16 +159,26 @@ def resolve(registry: dict, key: str) -> tuple[str, dict | None] | None:
     return key, None
 
 
-def _below_root(path: PureWindowsPath, projects_root: PureWindowsPath, roots: dict) -> tuple[str, str] | None:
+def _below_root(path: PureWindowsPath, projects_root: PureWindowsPath, roots: dict) -> tuple[str, str, PureWindowsPath] | None:
+    """The key, business and folder of the project holding this path.
+
+    A root of one name ("VSTX-Projects") holds many projects: the path itself is the project, and the root alone is
+    none. A root of several names ("DEF-Projects/itg-claude-plugins") is one project: everything in it is that project,
+    and its neighbours are not looked at.
+    """
     try:
         relative = path.relative_to(projects_root)
     except ValueError:
         return None
-    if len(relative.parts) < 2:
-        return None
-    for root, business in roots.items():
-        if relative.parts[0].casefold() == root.casefold():
-            return str(relative), business
+    named = sorted(((PureWindowsPath(root).parts, business) for root, business in roots.items()), key=lambda item: -len(item[0]))
+    for parts, business in named:
+        if len(relative.parts) < len(parts) or any(a.casefold() != b.casefold() for a, b in zip(relative.parts, parts)):
+            continue
+        if len(parts) > 1:
+            project = PureWindowsPath(*relative.parts[:len(parts)])
+            return str(project), business, projects_root / project
+        if len(relative.parts) >= 2:
+            return str(relative), business, path
     return None
 
 
@@ -209,7 +220,7 @@ def project_of(cwd: str, registry: dict) -> tuple[str, Path, str] | None:
         repo_placed = _below_root(PureWindowsPath(repo), projects_root, roots)
         if repo_placed is not None:
             return repo_placed[0], repo, repo_placed[1]
-    return placed[0], Path(cwd), placed[1]
+    return placed[0], Path(str(placed[2])), placed[1]
 
 
 def commits_since(repo: Path, since: datetime) -> list[dict]:

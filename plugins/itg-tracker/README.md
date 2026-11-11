@@ -32,7 +32,7 @@ Or in two steps on any version: `/plugin marketplace add DefoxxAnalytics/itg-cla
 Run `/itg-tracker:tracker-update`, or ask Claude to "update the progress tracker". With no settings yet, it asks:
 
 - where your project folders live;
-- which top-level folders are work, and the Business each belongs to;
+- which top-level folders are work, and the Business each belongs to. A single project can also be named on its own, for example `DEF-Projects\team-tools`, without the rest of its folder;
 - the short name for the People column.
 
 It saves these to `~/.claude/tracker-update/registry.json`, and reads who you are from SharePoint for "Assigned to". It then offers to match your projects with rows already on the list.

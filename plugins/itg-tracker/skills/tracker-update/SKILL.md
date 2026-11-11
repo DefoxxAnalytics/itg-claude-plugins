@@ -24,11 +24,11 @@ Arguments: none, or manual entries in the form `<project>: <status>`, separated 
 
 1. **Ask, in one message:**
    - where their project folders live (often `C:\Users\<them>\Documents\Projects`);
-   - which top-level folders there are work, and the list's Business for each (Corporate, Versatex, XLC, or FX / Foxx Construction). Only those folders are ever looked at;
+   - which top-level folders there are work, and the list's Business for each (Corporate, Versatex, XLC, or FX / Foxx Construction). Only those folders are ever looked at. A single project inside a folder that is otherwise left out can be named on its own as `<FOLDER>\<project>`: everything in it counts as that one project, and its neighbours stay out;
    - the short name they want in the People column.
 
    Listing the folders' names to help them choose is fine. Never list or open anything inside them.
-2. **Save:** `python "${CLAUDE_SKILL_DIR}/tracker.py" init --projects-root "<folder>" --root "<FOLDER>=<Business>" --root ... --people "<name>"`.
+2. **Save:** `python "${CLAUDE_SKILL_DIR}/tracker.py" init --projects-root "<folder>" --root "<FOLDER>=<Business>" --root ... --people "<name>"`. To add a folder or a single project later, edit `roots` in the settings file, for example `"DEF-Projects\\team-tools": "Corporate"`.
 3. **Their SharePoint identity:** in step 2 below, the read also returns `me`. Run `python "${CLAUDE_SKILL_DIR}/tracker.py" person --name "<me.Title>" --id <me.Id>` and tell them who they are signed in as.
 4. **Rows they already have:** the first preview offers to match their projects with the list's existing rows. They decide.
 5. **The 17:30 task (optional):** offer it once, and set it up only on their yes: `pwsh -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_SKILL_DIR}/schedule.ps1"`. It's a Windows scheduled task that opens Claude on weekdays at 17:30 when something is waiting to be posted. `schedule.ps1 -Remove` deletes it.

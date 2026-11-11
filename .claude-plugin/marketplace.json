@@ -1,0 +1,18 @@
+{
+  "name": "itg-plugins",
+  "owner": {
+    "name": "Defoxx Analytics"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for the ITG team"
+  },
+  "plugins": [
+    {
+      "name": "itg-tracker",
+      "source": "./plugins/itg-tracker",
+      "description": "Keeps the ITG Progress tracker list current: finds the work projects you worked on in Claude Code, drafts new rows and status updates, and writes them through Chrome after your yes.",
+      "category": "productivity",
+      "tags": ["sharepoint", "status", "progress-tracker", "itg"]
+    }
+  ]
+}

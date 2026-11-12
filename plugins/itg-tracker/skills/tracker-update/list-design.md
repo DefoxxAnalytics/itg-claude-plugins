@@ -166,6 +166,7 @@ Each work item has a page in the ITG Notebook (`/sites/ITG/SiteAssets/ITG Notebo
   - For each: build the page HTML in a Compose step, OneNote (Business) "Create page in a section", then write the page's link to the item with "Send an HTTP request to SharePoint" (`validateUpdateListItem`, `bNewDocumentUpdate: true`).
 - **Form button:** "Project notes" on the banner's chip line, right-aligned (`Button1_8` in `DataCard6`, white outline on black). `OnSelect = Launch(ThisItem.'Project notes')`. It is hidden on a new item and while the link is empty.
 - **Page:** the item's title, a link back to the tracker item, Business, "Owner at creation", the Description, and empty headings: Purpose and scope, How it works, Key decisions, Links and files, Open questions.
+  - Under each heading sits a named block (`data-id` of `purpose`, `how`, `decisions`, `links`, `questions`) holding the line "Not written yet.". The names let a flow add text to one section (section 7). Pages made before 12 Nov 2026 14:30 UTC have no named blocks.
 
 What this means for the skill: read `ProjectNotes`, never write it. Clearing it makes the next run create a second page.
 
@@ -177,3 +178,30 @@ Gotchas, all met on 12 Nov:
 - Renaming a work item does not rename its page; deleting an item leaves its page. Owner and Description on the page are a snapshot.
 
 **Undo:** turn off or delete the flow; delete the column; delete the Projects section. Remove the guard condition from the section 5 flow if the column goes.
+
+## 7. Writing to the notebook pages (12 Nov 2026)
+
+The `project-notes` skill fills in the pages of section 6. It cannot reach OneNote itself, so it leaves a request in a list and a flow carries it out.
+
+- **List:** "Project notes requests" (`/sites/ITG/Lists/ProjectNotesRequests`, hidden from the site menu). Columns: `Title`, `TrackerItemId`, `Section` (the kind of request: `read`, `fill` or `rebuild`), `Content`, `Expected`, `RequestStatus` (Pending, Done or Refused) and `Result`. It doubles as the log of what was written, by whom and when.
+- **Flow:** "Progress tracker: write project notes" (flow id `5725eb07-7124-429c-acc8-b14e092e2165`, default environment, owned by the list owner). Trigger: "When an item is created" on the request list. It finds the work item's page by the link in "Project notes", reads the page, then:
+  - **refuses** unless the person who made the request is the work item's assignee;
+  - `read`: returns the page's created and modified dates and its HTML in `Result`;
+  - `fill` and `rebuild`: refuses unless the page's HTML still equals `Expected`, the HTML the skill read (line breaks and tabs ignored);
+  - `fill`: runs the OneNote "Update page content" commands in `Content`. The skill only sends `append` commands aimed at the named blocks;
+  - `rebuild`: creates a new page from the HTML in `Content`, writes its link to the work item (keeping "Modified" and "Modified by", as in section 6), then deletes the old page.
+- **Who decides what may be written:** `skills/project-notes/notes.js`, in the browser.
+  - It allows `rebuild` only while the page says exactly what the page flow or the last `rebuild` put there, word for word.
+  - Once a person has typed anything, it allows `fill` only, and only for sections that are still empty.
+  - The flow does not repeat this check, so a request made by hand could rebuild an edited page of the requester's own work item.
+
+What OneNote allows, found by testing on 12 Nov:
+
+- A flow **cannot replace** part of a page. "Update page content" refuses `replace` on a block addressed by its `data-id` ("The PATCH target DIV for action replace is not supported"). Replacing needs ids that OneNote generates, and no standard connector returns them: "Get page content" leaves them out, and the Office 365 Groups connector's Graph request is refused for OneNote ("does not contain a valid authentication token"). Hence rebuild-or-fill.
+- `append` to a block addressed as `#<data-id>` works.
+- A page's `lastModifiedTime` **does not change** when a person types on the page in OneNote for the web. Never use it to tell whether a page was edited. The flow still carries a date check from before this was known; it never fires.
+- OneNote returns an empty line as `&#160;` and restyles everything, so compare pages by their text, never by their HTML, except for the `Expected` check, where both sides are OneNote's own output.
+- A rebuilt page gets a new address and loses its version history.
+- Pages are written under the flow owner's name, whoever asked. The request list shows who asked.
+
+**Undo:** turn off or delete the flow; delete the request list. Pages already written stay as they are.

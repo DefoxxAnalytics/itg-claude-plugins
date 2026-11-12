@@ -484,3 +484,94 @@ def test_folders_can_be_added_and_removed_later(world, tmp_path, capsys):
     assert tracker.main(["--registry", str(registry_path), "remove-folder", str(dev).upper()]) == 0
     assert [folder["path"] for folder in json.loads(registry_path.read_text(encoding="utf-8"))["folders"]] == [str(tmp_path / "Tool")]
     assert saved["roots"] == {"VSTX-Projects": "Versatex", "XLC-Projects": "XLC"}
+
+
+def run_projects(world) -> dict:
+    claude_dir, _, registry_path = world
+    return tracker.projects(claude_dir, tracker.load_registry(registry_path), now=NOW)
+
+
+def test_projects_lists_every_folder_that_has_a_row(world):
+    _, projects_root, registry_path = world
+    alpha = projects_root / "VSTX-Projects" / "Alpha"
+    alpha.mkdir(parents=True)
+    (projects_root / "VSTX-Projects" / "No-row").mkdir()
+    (projects_root / "VSTX-Projects" / "Skip").mkdir()
+    (projects_root / "Private" / "Diary").mkdir(parents=True)
+    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW, title="Alpha rollout")
+    tracker.ignore(registry_path, r"VSTX-Projects\Skip")
+    result = run_projects(world)
+    assert keys(result) == [r"VSTX-Projects\Alpha"]
+    project = result["projects"][0]
+    assert (project["row"], project["title"], project["business"]) == (7, "Alpha rollout", "Versatex")
+    assert Path(project["path"]) == alpha
+
+
+def test_projects_lists_a_folder_under_the_project_it_is_an_alias_of(world):
+    _, projects_root, registry_path = world
+    (projects_root / "VSTX-Projects" / "Main").mkdir(parents=True)
+    (projects_root / "VSTX-Projects" / "Old-name").mkdir()
+    tracker.record(registry_path, r"VSTX-Projects\Main", 4, now=NOW)
+    tracker.alias(registry_path, r"VSTX-Projects\Old-name", r"VSTX-Projects\Main")
+    result = run_projects(world)
+    assert [(project["key"], project["row"]) for project in result["projects"]] == [(r"VSTX-Projects\Main", 4)] * 2
+    assert sorted(Path(project["path"]).name for project in result["projects"]) == ["Main", "Old-name"]
+
+
+def test_projects_reads_a_folder_that_is_one_project(world, tmp_path):
+    _, _, registry_path = world
+    tool = tmp_path / "Elsewhere" / "Tool"
+    tool.mkdir(parents=True)
+    (tool / "src").mkdir()
+    add_folders(registry_path, [{"path": str(tool), "business": "Corporate", "kind": "project"}])
+    tracker.record(registry_path, "Tool", 9, now=NOW)
+    result = run_projects(world)
+    assert [(project["key"], project["row"], project["business"]) for project in result["projects"]] == [("Tool", 9, "Corporate")]
+
+
+def test_projects_names_the_readme_and_the_five_newest_docs(world):
+    _, projects_root, registry_path = world
+    alpha = projects_root / "VSTX-Projects" / "Alpha"
+    (alpha / "docs" / "deep").mkdir(parents=True)
+    (alpha / "ReadMe.md").write_text("# Alpha", encoding="utf-8")
+    (alpha / "docs" / "notes.txt").write_text("x", encoding="utf-8")
+    (alpha / "docs" / "deep" / "buried.md").write_text("x", encoding="utf-8")
+    for number in range(7):
+        page = alpha / "docs" / f"page{number}.md"
+        page.write_text("x", encoding="utf-8")
+        stamp = (NOW - timedelta(hours=number)).timestamp()
+        os.utime(page, (stamp, stamp))
+    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    project = run_projects(world)["projects"][0]
+    assert Path(project["readme"]).name == "ReadMe.md"
+    assert [Path(doc).name for doc in project["docs"]] == [f"page{number}.md" for number in range(5)]
+
+
+def test_projects_reads_the_person_s_commits_and_the_memory(world):
+    claude_dir, projects_root, registry_path = world
+    repo = make_repo(projects_root / "VSTX-Projects" / "Alpha", [NOW - timedelta(days=90), NOW - timedelta(days=1)])
+    memory = folder_for(claude_dir, repo) / "memory"
+    memory.mkdir()
+    (memory / "MEMORY.md").write_text("- [Decision](decision.md)", encoding="utf-8")
+    (memory / "decision.md").write_text("We chose X.", encoding="utf-8")
+    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    project = run_projects(world)["projects"][0]
+    assert [commit["subject"] for commit in project["commits"]] == ["change 1", "change 0"]
+    assert project["memory_index"] == "- [Decision](decision.md)"
+    assert [Path(note).name for note in project["memory_notes"]] == ["decision.md"]
+
+
+def test_a_project_without_readme_docs_git_or_memory_still_lists(world):
+    _, projects_root, registry_path = world
+    (projects_root / "VSTX-Projects" / "Bare").mkdir(parents=True)
+    tracker.record(registry_path, r"VSTX-Projects\Bare", 3, now=NOW)
+    project = run_projects(world)["projects"][0]
+    assert (project["readme"], project["docs"], project["commits"], project["memory_notes"]) == (None, [], [], [])
+
+
+def test_cli_projects_prints_json(world, capsys):
+    claude_dir, projects_root, registry_path = world
+    (projects_root / "VSTX-Projects" / "Alpha").mkdir(parents=True)
+    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    assert tracker.main(["--registry", str(registry_path), "--claude-dir", str(claude_dir), "projects"]) == 0
+    assert [project["row"] for project in json.loads(capsys.readouterr().out)["projects"]] == [7]

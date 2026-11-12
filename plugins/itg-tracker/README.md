@@ -1,6 +1,6 @@
 # itg-tracker
 
-A Claude Code plugin with one skill, `tracker-update`. It keeps the ITG SharePoint list "Progress tracker list" (`/sites/ITG`) current with your own work projects.
+A Claude Code plugin with two skills. `tracker-update` keeps the ITG SharePoint list "Progress tracker list" (`/sites/ITG`) current with your own work projects. `project-notes` fills in the ITG Notebook pages of your own work items.
 
 ## What it does
 
@@ -10,6 +10,14 @@ A Claude Code plugin with one skill, `tracker-update`. It keeps the ITG SharePoi
 4. Writes through Chrome, signed in as you, **only after your yes**. It then checks each row's history to confirm only the approved fields changed.
 
 It never puts client data on the list: no rows, quote text, supplier or employee names, client IDs or figures from client files. It never posts secrets, internal addresses or file paths either.
+
+## Project notes
+
+Every work item has a page in the ITG Notebook, section "Projects". Run `/itg-tracker:project-notes`, or ask Claude to "fill in my project notes pages". For each work item assigned to you that has a folder on your laptop, it drafts the page's sections from the project's README, docs, your own commits and its Claude memory notes, shows you one preview per page, and writes only after your yes.
+
+- While nobody has edited a page, it can rewrite the whole page.
+- Once someone has typed on a page, it only fills sections that are still empty. It never replaces what a person wrote.
+- Run the tracker update once first: this skill uses its settings.
 
 ## You need
 
@@ -53,7 +61,10 @@ On the first run Claude offers a Windows scheduled task, "Claude tracker update"
 | `skills/tracker-update/SKILL.md` | The skill: first-run setup, gather, draft, preview, write, check, record |
 | `skills/tracker-update/tracker.py` | Finds the projects and keeps your settings (Python standard library only) |
 | `skills/tracker-update/sharepoint.md` | The browser snippets: read rows with their etags, write a batch, read a row's history |
-| `skills/tracker-update/list-design.md` | How the list itself is formatted (gold rows, Power Apps form with its rules, branded board), the two flows on it (assignment message, notebook page per item) and how to undo each |
+| `skills/project-notes/SKILL.md` | The second skill: find the projects, read the pages, draft, preview, write, check |
+| `skills/project-notes/notes.js` | Runs in the browser tab: reads a page, decides what may be written, sends the write |
+| `skills/tracker-update/list-design.md` | How the list itself is formatted (gold rows, Power Apps form with its rules, branded board), the flows on it (assignment message, notebook page per item, notes writer) and how to undo each |
 | `skills/tracker-update/scheduled.ps1`, `schedule.ps1` | The optional 17:30 task |
 | `skills/tracker-update/registry.template.json` | The settings every person starts from |
 | `tests/test_tracker.py` | Tests for `tracker.py` |
+| `tests/test_notes.js` | Tests for `notes.js` (`node --test tests/test_notes.js`) |

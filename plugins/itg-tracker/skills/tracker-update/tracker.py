@@ -7,6 +7,7 @@
     python tracker.py person --name "Last, First" --id N
     python tracker.py gather [--since ISO]     projects with sessions since then, as JSON
     python tracker.py pending                  how many of them have something not yet posted
+    python tracker.py projects                 every project that has a row, with what its notes can be drafted from
     python tracker.py record KEY --row N [--title T]
     python tracker.py ignore KEY
     python tracker.py alias KEY --to KEY
@@ -24,7 +25,7 @@ import re
 import subprocess
 import sys
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 
 HERE = Path(__file__).resolve().parent
@@ -33,6 +34,9 @@ CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
 MEMORY_INDEX_CAP = 4000
 COMMITS_SHOWN = 20
 LINES_SEARCHED_FOR_CWD = 50
+DOCS_SHOWN = 5
+HISTORY_COMMITS = 40
+HISTORY_DAYS = 730
 FIELD = "\x1f"
 
 
@@ -387,6 +391,62 @@ def pending(claude_dir: Path, registry: dict, since: datetime | None = None, now
     return sum(1 for project in gather(claude_dir, registry, since=since, now=now)["projects"] if project["new"])
 
 
+def project_folders(registry: dict) -> list[PureWindowsPath]:
+    """Every folder on this machine that the settings count as one project."""
+    found = []
+    for folder, _, kind in work_folders(registry):
+        here = Path(str(folder))
+        if not here.is_dir():
+            continue
+        if kind == PROJECT:
+            found.append(folder)
+        else:
+            found.extend(PureWindowsPath(str(child)) for child in here.iterdir() if child.is_dir())
+    return found
+
+
+def readme_of(folder: Path) -> str | None:
+    for file in sorted(folder.glob("*.md")):
+        if file.stem.casefold() == "readme":
+            return str(file)
+    return None
+
+
+def docs_of(folder: Path) -> list[str]:
+    pages = sorted((folder / "docs").glob("*.md"), key=lambda page: page.stat().st_mtime, reverse=True)
+    return [str(page) for page in pages[:DOCS_SHOWN]]
+
+
+def projects(claude_dir: Path, registry: dict, now: datetime | None = None) -> dict:
+    """Each project folder whose project has a row, with the files and history its notes page can be drafted from."""
+    now = now or now_local()
+    found: dict[str, dict] = {}
+    for folder in project_folders(registry):
+        placed = _place(folder, registry)
+        if placed is None:
+            continue
+        key, business, project = placed
+        tracked = resolve(registry, key)
+        if tracked is None or tracked[1] is None or "row" not in tracked[1]:
+            continue
+        key, entry = tracked
+        path = Path(str(project))
+        repo = repository(path)
+        if repo is not None and not same_folder(repo, path):
+            repo = None
+        memory = memory_folder(claude_dir, path)
+        found[str(project).casefold()] = {
+            "key": key, "path": str(path), "business": business, "row": entry["row"], "title": entry.get("title"),
+            "readme": readme_of(path),
+            "docs": docs_of(path),
+            "commits": commits_since(repo, now - timedelta(days=HISTORY_DAYS))[:HISTORY_COMMITS] if repo else [],
+            "memory_index": memory_index(memory),
+            "memory_notes": [item["path"] for item in memory_changes(memory, datetime.min.replace(tzinfo=now.tzinfo))],
+        }
+    listed = sorted(found.values(), key=lambda item: (item["key"].casefold(), item["path"].casefold()))
+    return {"generated": now.isoformat(), "projects": listed}
+
+
 def main(arguments: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--registry", type=Path, default=None)
@@ -421,6 +481,7 @@ def main(arguments: list[str]) -> int:
     aliasing.add_argument("key")
     aliasing.add_argument("--to", required=True)
     commands.add_parser("ran")
+    commands.add_parser("projects")
     options = parser.parse_args(arguments)
 
     if hasattr(sys.stdout, "reconfigure"):
@@ -467,6 +528,8 @@ def main(arguments: list[str]) -> int:
             print(json.dumps(gather(options.claude_dir, registry, since=since), indent=2, ensure_ascii=False))
         else:
             print(pending(options.claude_dir, registry, since=since))
+    elif options.command == "projects":
+        print(json.dumps(projects(options.claude_dir, load_registry(options.registry)), indent=2, ensure_ascii=False))
     elif options.command == "record":
         record(options.registry, options.key, options.row, title=options.title)
     elif options.command == "ignore":

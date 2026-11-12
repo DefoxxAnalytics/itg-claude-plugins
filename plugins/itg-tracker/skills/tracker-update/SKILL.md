@@ -73,6 +73,7 @@ For each project, newest work first:
   - Propose a **Progress** change only on clear evidence: Completed when the work shipped with nothing next; Blocked when everything waits on someone else.
   - If **Description** or **Assigned to** is empty, propose filling it, as for a new row.
   - Never change Title, Summary, Phase, Business, People, a filled Description or Assigned to, or any other column of an existing row.
+  - Never write **Project notes** (`ProjectNotes`), on any row. A flow fills it with the link to the project's page in the ITG Notebook (see `list-design.md`, section 6).
 - **New project:** offer one of these:
   - **a new row:**
     - Title: a readable name, not the folder's.
@@ -100,6 +101,7 @@ Send one message with every change:
 
 - for each row, the action ("Update row 12 <title>", "New row", "Match <folder> to row 5?", "Ignore?");
 - for each changed field, before → after; for a new row, every field;
+- for an existing row whose `notesLink` is filled, a link "Open notes" to it, so the user can add the longer story there; for a new row, the line "Its notebook page appears a minute or two after the row.";
 - the questions (Phase of new rows, Notes someone else wrote).
 
 End with: "Apply all? You can also say: yes except …, ignore …, match … to row …, or edit any text." Then stop and wait. Write only what the user's answer approves.

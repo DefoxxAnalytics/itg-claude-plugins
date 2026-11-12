@@ -1,6 +1,6 @@
 {
   "name": "itg-tracker",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Keeps the ITG Progress tracker list current: finds the work projects you worked on in Claude Code, drafts new rows and status updates, and writes them through Chrome after your yes.",
   "author": {
     "name": "Defoxx Analytics"

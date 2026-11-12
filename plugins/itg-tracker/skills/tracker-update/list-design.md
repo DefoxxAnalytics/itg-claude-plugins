@@ -140,7 +140,8 @@ A Power Automate cloud flow, "Progress tracker: tell the assignee" (flow id `85c
 - **Condition**, all must hold:
   - "Assigned to" has an email;
   - "Assigned to" changed in this edit, or the item is new (Created equals Modified);
-  - the assignee is not the person who made the change.
+  - the assignee is not the person who made the change;
+  - the run was not caused by the notes-page flow writing its link (section 6): "Project notes" is empty, or it did not change in this edit and Created differs from Modified.
 - **Message:** a bold heading, the item title, a list (Progress, Phase, Priority, Due date, Assigned by) and a link to the item. It is one `concat(...)` expression holding HTML.
 
 What this means for the skill: a row the skill creates or updates for the signed-in person sends nothing, because the assignee and the editor are the same person. A row created for someone else would message them.
@@ -152,3 +153,27 @@ Gotchas found while building it in the new designer:
 - The trigger polls about once a minute. Two edits inside one window make one run.
 
 **Undo:** My flows ▸ the flow ▸ Turn off (or Delete).
+
+## 6. A notebook page for every work item (12 Nov 2026)
+
+Each work item has a page in the ITG Notebook (`/sites/ITG/SiteAssets/ITG Notebook`), section "Projects". Status stays in the tracker; the page holds what stays true for months.
+
+- **Column:** "Project notes" (`ProjectNotes`, multi-line plain text, because a OneNote link is 200 to 240 characters and a Hyperlink column stops at 255). Column formatting shows it as an "Open notes" link. It is in the views All Items, Grouped by work item progress and Grouped by priority.
+- **Flow:** "Progress tracker: create project notes pages" (flow id `f639f77f-4edc-4ede-8978-2814941ab64e`, default environment, owned by the list owner).
+  - Trigger: SharePoint "When an item is created", one run at a time.
+  - Delay of 2 minutes, so the assignment notification (section 5) sees the new item first.
+  - Get items, then keep the items whose "Project notes" is empty. So one run also gives a page to any older item that lacks one.
+  - For each: build the page HTML in a Compose step, OneNote (Business) "Create page in a section", then write the page's link to the item with "Send an HTTP request to SharePoint" (`validateUpdateListItem`, `bNewDocumentUpdate: true`).
+- **Form button:** "Project notes" on the banner's chip line, right-aligned (`Button1_8` in `DataCard6`, white outline on black). `OnSelect = Launch(ThisItem.'Project notes')`. It is hidden on a new item and while the link is empty.
+- **Page:** the item's title, a link back to the tracker item, Business, "Owner at creation", the Description, and empty headings: Purpose and scope, How it works, Key decisions, Links and files, Open questions.
+
+What this means for the skill: read `ProjectNotes`, never write it. Clearing it makes the next run create a second page.
+
+Gotchas, all met on 12 Nov:
+
+- `bNewDocumentUpdate: true` overwrites the item's current version in place. It makes no new version, but it **does reset "Modified" and "Modified by"** unless the same call sends them. The flow sends both: `Modified` as the item's own time in the site's time zone (`M/d/yyyy h:mm tt`; seconds are refused) and `Editor` as `[{"Key":"<claims>"}]`. So after the link is written, "Modified" is rounded down to the minute.
+- An in-place overwrite still fires "created or modified" triggers, and "Get changes" then compares the previous version with the overwritten one. The item's last real edit shows up as if it had just happened. The first backfill sent one false "assigned to you" message this way; the last condition in section 5 is the guard.
+- The OneNote action's rich-text field strips `<html>` and `<head>`, which loses the page title. Build the full HTML in a Compose step and pass its output.
+- Renaming a work item does not rename its page; deleting an item leaves its page. Owner and Description on the page are a snapshot.
+
+**Undo:** turn off or delete the flow; delete the column; delete the Projects section. Remove the guard condition from the section 5 flow if the column goes.

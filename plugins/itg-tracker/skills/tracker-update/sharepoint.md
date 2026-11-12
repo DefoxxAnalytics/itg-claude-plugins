@@ -8,17 +8,17 @@ const base = `${site}/_api/web/lists/getbytitle('Progress tracker list')`;
 const nm = "application/json;odata=nometadata";
 ```
 
-Columns (internal names): `Title`, `Summary`, `Notes` (plain multi-line text), `Description` (rich text: send one HTML paragraph, `<p>…</p>`), `AssignedTo0` (one person: write `AssignedTo0Id` with the person's site user id), `Progress` (Not started / In progress / Completed / Blocked / Behind), `Phase` (Discover / Design / Deliver), `Business` (Corporate / Versatex / XLC / FX / Foxx Construction), `ProjectPeople` (text), `Priority`, `StartDate`, `DueDate`, `KeyStakeholders`, `Category0`. Others edit this list too.
+Columns (internal names): `Title`, `Summary`, `Notes` (plain multi-line text), `Description` (rich text: send one HTML paragraph, `<p>…</p>`), `AssignedTo0` (one person: write `AssignedTo0Id` with the person's site user id), `Progress` (Not started / In progress / Completed / Blocked / Behind), `Phase` (Discover / Design / Deliver), `Business` (Corporate / Versatex / XLC / FX / Foxx Construction), `ProjectPeople` (text), `Priority`, `StartDate`, `DueDate`, `KeyStakeholders`, `Category0`, `ProjectNotes` (the link to the project's notebook page: filled by a flow; read it, never write it). Others edit this list too.
 
 ## Read every row, with its etag
 
 ```js
-const answer = await fetch(base + "/items?$top=500&$select=Id,Title,Summary,Notes,Description,AssignedTo0Id,Progress,Phase,Business,ProjectPeople",
+const answer = await fetch(base + "/items?$top=500&$select=Id,Title,Summary,Notes,Description,AssignedTo0Id,Progress,Phase,Business,ProjectPeople,ProjectNotes",
   {headers: {Accept: "application/json;odata=minimalmetadata"}}).then(r => r.json());
 const me = await fetch(site + "/_api/web/currentuser?$select=Id,Title", {headers: {Accept: nm}}).then(r => r.json());
 ({me, rows: answer.value.map(i => ({id: i.Id, etag: i["odata.etag"], title: i.Title, summary: i.Summary, notes: i.Notes,
   description: i.Description, assignedId: i.AssignedTo0Id, progress: i.Progress, phase: i.Phase, business: i.Business,
-  people: i.ProjectPeople}))})
+  people: i.ProjectPeople, notesLink: i.ProjectNotes}))})
 ```
 
 `me.Id` is the signed-in user's site id, the value for `AssignedTo0Id`. If `me.Title` is not the settings' `assigned_to.name`, stop and ask: someone else is signed in. (On a first run there is no `assigned_to` yet; save it with `tracker.py person`.)

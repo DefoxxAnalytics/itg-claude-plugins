@@ -50,6 +50,7 @@ results
 
 - 204: updated. 201: created; `id` is the new row.
 - 412: someone changed the row after the preview read. Nothing was written to it. Read it again, show the user that row again, and ask again.
+- An error (usually 400) whose message is "Title is required, and Due date must be on or after Start date.": the list's validation formula refused the row (see `list-design.md`, section 4). Nothing was written to it. Fix the dates or the title with the user before trying again.
 - Anything else: stop and report the status. Never retry a create blindly: check first whether the row now exists.
 
 ## Check what changed

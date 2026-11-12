@@ -53,7 +53,7 @@ On the first run Claude offers a Windows scheduled task, "Claude tracker update"
 | `skills/tracker-update/SKILL.md` | The skill: first-run setup, gather, draft, preview, write, check, record |
 | `skills/tracker-update/tracker.py` | Finds the projects and keeps your settings (Python standard library only) |
 | `skills/tracker-update/sharepoint.md` | The browser snippets: read rows with their etags, write a batch, read a row's history |
-| `skills/tracker-update/list-design.md` | How the list itself is formatted (gold rows, branded form and board) and how to undo it |
+| `skills/tracker-update/list-design.md` | How the list itself is formatted (gold rows, Power Apps form with its rules, branded board) and how to undo it |
 | `skills/tracker-update/scheduled.ps1`, `schedule.ps1` | The optional 17:30 task |
 | `skills/tracker-update/registry.template.json` | The settings every person starts from |
 | `tests/test_tracker.py` | Tests for `tracker.py` |

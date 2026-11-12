@@ -15,7 +15,9 @@ Set as `CustomFormatter` on the views All Items, Grouped by work item progress, 
 - The Progress board (Kanban) and Homepage cards (tiles) have their own designs and were not touched.
 - **Undo:** set `CustomFormatter` to `""` on those four views.
 
-## 2. The branded form
+## 2. The branded form (JSON formatting, superseded the same evening)
+
+**No longer what people see.** Later on 11 Nov the list was switched to a Power Apps form (section 4), which replaces the SharePoint form this formatting applies to. The formatter below was not touched by that work, so it shows again only if the list goes back to the default SharePoint form.
 
 Set as `ClientFormCustomFormatter` on the list's **Item** content type (`.../contenttypes('<Item id>')`). It was empty before.
 
@@ -61,3 +63,55 @@ Gotchas found on 11 Nov when saving view formatters through REST:
 - After a change, load the board with a fresh query string to get past the cached data.
 
 **Undo:** the original formatter (the card designer's, with its `designerConfig`) is saved byte for byte at `/sites/ITG/SiteAssets/progress-board-card-original-2026-11-11.json`. Read it and MERGE it back as the view's `CustomFormatter`. The three added view fields can stay, or be removed with `ViewFields/removeviewfield('<name>')`.
+
+## 4. The Power Apps form (published 11 Nov 2026)
+
+The list's new, edit and view forms are a Power Apps customized form, "Progress tracker list on ITG forms" (app id `5409a4a5-135e-4569-9552-8a97985bc5c2`, default environment). Open it for editing from the list: Integrate ▸ Power Apps ▸ Customize forms. Nothing reaches the team until Publish ▸ Publish to SharePoint, and SharePoint then serves the old form from cache for about a minute.
+
+What the form does:
+
+- **Banner:** black band with the white Versatex logo (embedded in the app as a data URI), the item's title or "New work item", and a yellow rule.
+- **Sections**, each with a grey band and a yellow marker:
+  - Work item: Title, Description, Category, Business
+  - Status: Progress, Priority, Phase
+  - Schedule: Start date, Due date
+  - People: Assigned to, Key stakeholders
+  - Notes: Notes, People, Summary
+- **Defaults on a new item:** Progress "Not started", Phase "Discover", Start date today.
+- **Rules:**
+  - Title is required.
+  - Due date must be on or after Start date (save is refused).
+  - Notes is required when Progress is Blocked or Behind.
+  - Due date is required when Progress is In progress.
+  - "Overdue" shows under Due date when it has passed and Progress is not Completed.
+- **Assigned to** lists the members of the ITG Microsoft 365 group, read live through the Office 365 Groups connector (group id `a4d12876-a711-4604-abb1-da885a1f1452`). The "AI Projects" account is filtered out. Add or remove someone in the group and the list follows; no form edit needed.
+- **Key stakeholders** searches the whole directory. The owner chose on 11 Nov to keep it open to the entire tenant.
+- **People and Summary** are editable and labelled "(updated automatically by the tracker)".
+- **View mode:** empty fields are hidden. Description, Notes and Summary show as full-height text, not in a scroll box.
+- **Brand rules kept:** yellow only as a fill, rule or marker; selection and focus states are black or grey.
+
+Things that are different from a plain list form:
+
+- The form is one tall control inside the page, so it scrolls on its own.
+- The first time someone opens it, Power Apps asks them to allow the SharePoint and Office 365 Groups connections.
+- Form-only rules (Notes when Blocked or Behind, Due date when In progress, the defaults) do not apply to grid edits or to this skill's REST writes. The two list-level rules below do.
+
+### List-level rules set with the form
+
+- The Title column is required (`Required: true`). Making it required reset the column header from "Work item" to "Title"; the display name of `LinkTitle` and `LinkTitleNoMenu` was set back to "Work item".
+- List validation formula, with the message "Title is required, and Due date must be on or after Start date.":
+
+  ```
+  =AND(NOT(ISBLANK(Title)),OR(ISBLANK([Due date]),ISBLANK([Start date]),[Due date]>=[Start date]))
+  ```
+
+  A write that breaks it is rejected for everyone, including grid edits and REST calls.
+
+### Editing gotchas
+
+- Studio opens read-only when an earlier session still holds the edit lock; "Override" takes it over.
+- Changing a combo box's `Items` resets its `DisplayFields` and `SearchFields`; set both back to `["DisplayName"]`.
+- A card must be unlocked (Advanced tab) before its controls' formulas can be changed.
+- Studio's preview cannot show view mode, and in a fresh session it may show "No item to display". Check view mode on the live list after publishing.
+
+**Undo:** List settings ▸ Form settings ▸ "Use the default SharePoint form" (and, if wanted, "Delete custom form"). The section 2 formatting then shows again. To drop the list-level rules as well, clear the list's validation formula and set the Title column back to not required.

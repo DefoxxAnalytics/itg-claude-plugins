@@ -64,19 +64,23 @@ Gotchas found on 11 Nov when saving view formatters through REST:
 
 **Undo:** the original formatter (the card designer's, with its `designerConfig`) is saved byte for byte at `/sites/ITG/SiteAssets/progress-board-card-original-2026-11-11.json`. Read it and MERGE it back as the view's `CustomFormatter`. The three added view fields can stay, or be removed with `ViewFields/removeviewfield('<name>')`.
 
-## 4. The Power Apps form (published 11 Nov 2026)
+## 4. The Power Apps form (published 11 Nov 2026, redesigned 12 Nov)
 
 The list's new, edit and view forms are a Power Apps customized form, "Progress tracker list on ITG forms" (app id `5409a4a5-135e-4569-9552-8a97985bc5c2`, default environment). Open it for editing from the list: Integrate ▸ Power Apps ▸ Customize forms. Nothing reaches the team until Publish ▸ Publish to SharePoint, and SharePoint then serves the old form from cache for about a minute.
 
 What the form does:
 
-- **Banner:** black band with the white Versatex logo (embedded in the app as a data URI), the item's title or "New work item", and a yellow rule.
+- **Banner:** black band with the white Versatex logo (embedded in the app as a data URI), the item's title or "New work item", and a yellow rule. On an existing item a line of chips under the title shows Progress, Phase and Business, plus a red "Overdue" chip when it applies. The chips follow unsaved edits.
 - **Sections**, each with a grey band and a yellow marker:
   - Work item: Title, Description, Category, Business
   - Status: Progress, Priority, Phase
   - Schedule: Start date, Due date
   - People: Assigned to, Key stakeholders
   - Notes: Notes, People, Summary
+- **Section order:** as listed above on a new item and in view mode. In edit mode it is Status, Schedule, Notes, Work item, People, so a status update needs no scrolling.
+- **Side-by-side fields:** Category and Business, Priority and Phase (40% and 60%), Start date and Due date. Everything else is full width.
+- **Progress and Phase are button rows** in new and edit mode (five and three buttons, the selected one black). View mode shows them as plain text.
+- **Footer:** "Last changed by <name> on <date>" on an existing item.
 - **Defaults on a new item:** Progress "Not started", Phase "Discover", Start date today.
 - **Rules:**
   - Title is required.
@@ -88,7 +92,8 @@ What the form does:
 - **Key stakeholders** searches the whole directory. The owner chose on 11 Nov to keep it open to the entire tenant.
 - **People and Summary** are editable and labelled "(updated automatically by the tracker)".
 - **View mode:** empty fields are hidden. Description, Notes and Summary show as full-height text, not in a scroll box.
-- **Brand rules kept:** yellow only as a fill, rule or marker; selection and focus states are black or grey.
+- **Brand rules kept:** yellow only as a fill, rule or marker; selection, hover and focus states are black or grey.
+- **Font:** Segoe UI. Power Apps has no Roboto; it offers Arial, Courier New, Georgia, Lato, Open Sans, Segoe UI, Verdana and three script fonts.
 
 Things that are different from a plain list form:
 
@@ -107,9 +112,19 @@ Things that are different from a plain list form:
 
   A write that breaks it is rejected for everyone, including grid edits and REST calls.
 
+### How the button rows and the edit order work
+
+- Each button sets a screen variable (`locProgress` or `locPhase`) to its own label. The original dropdown stays in the card, hidden outside view mode, with `DefaultSelectedItems` set to `If(IsBlank(locProgress), Parent.Default, {Value: locProgress})`. The card still saves the dropdown's value, so the form rules that read it keep working.
+- The button labels are typed in, not read from the list. If the Progress or Phase choices change in the list, edit the buttons to match (`Button1` to `Button1_4` in the Progress card, `Button1_5` to `Button1_7` in the Phase card).
+- The variables are cleared in the form's `OnReset`. `SharePointIntegration.OnNew`, `OnEdit` and `OnView` call `ResetForm(SharePointForm1)` before opening the form, because `UpdateContext` is not allowed in those handlers. Without this, a click on one item would show on the next item opened.
+- Each card's `Y` is its order in the form and accepts a formula. The Work item and People cards use `If(SharePointForm1.Mode = FormMode.Edit, <edit order>, <normal order>)`. Cards that share a row have the same `Y` and different `X`.
+- The banner chips are one HTML text control (`HtmlText2`), so they size and wrap on their own.
+
 ### Editing gotchas
 
 - Studio opens read-only when an earlier session still holds the edit lock; "Override" takes it over.
+- A new button has `BorderStyle.None`; set `BorderStyle.Solid` or the border colour and thickness do nothing.
+- The blue border on inputs is `HoverBorderColor`, not the focus border.
 - Changing a combo box's `Items` resets its `DisplayFields` and `SearchFields`; set both back to `["DisplayName"]`.
 - A card must be unlocked (Advanced tab) before its controls' formulas can be changed.
 - Studio's preview cannot show view mode, and in a fresh session it may show "No item to display". Check view mode on the live list after publishing.

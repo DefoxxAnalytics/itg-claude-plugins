@@ -129,4 +129,26 @@ Things that are different from a plain list form:
 - A card must be unlocked (Advanced tab) before its controls' formulas can be changed.
 - Studio's preview cannot show view mode, and in a fresh session it may show "No item to display". Check view mode on the live list after publishing.
 
-**Undo:** List settings ▸ Form settings ▸ "Use the default SharePoint form" (and, if wanted, "Delete custom form"). The section 2 formatting then shows again. To drop the list-level rules as well, clear the list's validation formula and set the Title column back to not required.
+**Undo (form):** List settings ▸ Form settings ▸ "Use the default SharePoint form" (and, if wanted, "Delete custom form"). The section 2 formatting then shows again. To drop the list-level rules as well, clear the list's validation formula and set the Title column back to not required.
+
+## 5. The assignment notification flow (12 Nov 2026)
+
+A Power Automate cloud flow, "Progress tracker: tell the assignee" (flow id `85c8d5e0-383b-4f83-a48e-3e378ae90a86`, default environment, owned by the list owner). It sends the assignee a Teams chat message from the Flow bot when a work item is assigned to them.
+
+- **Trigger:** SharePoint "When an item is created or modified" on this list.
+- **Change check:** "Get changes for an item or a file (properties only)" with the item's ID and the Trigger Window Start Token.
+- **Condition**, all must hold:
+  - "Assigned to" has an email;
+  - "Assigned to" changed in this edit, or the item is new (Created equals Modified);
+  - the assignee is not the person who made the change.
+- **Message:** a bold heading, the item title, a list (Progress, Phase, Priority, Due date, Assigned by) and a link to the item. It is one `concat(...)` expression holding HTML.
+
+What this means for the skill: a row the skill creates or updates for the signed-in person sends nothing, because the assignee and the editor are the same person. A row created for someone else would message them.
+
+Gotchas found while building it in the new designer:
+
+- The expression editor often shows "This expression has a problem" on a valid expression; a second click on Add accepts it. Check Code view afterwards, because a silent failure leaves the field empty.
+- The Teams connection must be signed in under an account whose Teams can reach the assignees. An expired connection fails the run with "Unauthorized".
+- The trigger polls about once a minute. Two edits inside one window make one run.
+
+**Undo:** My flows ▸ the flow ▸ Turn off (or Delete).

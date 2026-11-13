@@ -575,3 +575,51 @@ def test_cli_projects_prints_json(world, capsys):
     tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
     assert tracker.main(["--registry", str(registry_path), "--claude-dir", str(claude_dir), "projects"]) == 0
     assert [project["row"] for project in json.loads(capsys.readouterr().out)["projects"]] == [7]
+
+
+def test_projects_lists_a_registered_project_nested_deeper_than_its_work_folder(world):
+    _, projects_root, registry_path = world
+    nested = projects_root / "VSTX-Projects" / "Client" / "Tool"
+    nested.mkdir(parents=True)
+    tracker.record(registry_path, r"VSTX-Projects\Client\Tool", 10, now=NOW, title="Tool v1")
+    result = run_projects(world)
+    assert [(project["key"], project["row"]) for project in result["projects"]] == [(r"VSTX-Projects\Client\Tool", 10)]
+    assert Path(result["projects"][0]["path"]) == nested
+    assert result["projects"][0]["business"] == "Versatex"
+
+
+def test_projects_skips_a_registered_project_whose_folder_is_not_on_this_machine(world):
+    _, _, registry_path = world
+    tracker.record(registry_path, r"VSTX-Projects\Gone", 6, now=NOW)
+    assert run_projects(world)["projects"] == []
+
+
+def test_saving_settings_waits_out_a_file_that_is_briefly_locked(world, monkeypatch):
+    _, _, registry_path = world
+    replace, calls = os.replace, []
+
+    def locked_twice(source, target):
+        calls.append(target)
+        if len(calls) <= 2:
+            raise PermissionError(5, "Access is denied")
+        replace(source, target)
+
+    monkeypatch.setattr(tracker.os, "replace", locked_twice)
+    monkeypatch.setattr(tracker.time, "sleep", lambda seconds: None)
+    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    assert len(calls) == 3
+    assert tracker.load_registry(registry_path)["projects"][r"VSTX-Projects\Alpha"]["row"] == 7
+    assert list(registry_path.parent.glob(".registry-*.tmp")) == []
+
+
+def test_saving_settings_gives_up_on_a_file_that_stays_locked(world, monkeypatch):
+    _, _, registry_path = world
+
+    def always_locked(source, target):
+        raise PermissionError(5, "Access is denied")
+
+    monkeypatch.setattr(tracker.os, "replace", always_locked)
+    monkeypatch.setattr(tracker.time, "sleep", lambda seconds: None)
+    with pytest.raises(PermissionError):
+        tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    assert list(registry_path.parent.glob(".registry-*.tmp")) == []

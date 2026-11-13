@@ -110,7 +110,7 @@ It returns `{mode, id, sections}`, or `{mode: "none", reason}` when there is not
 await Notes.finishWrite(row.id, id)
 ```
 
-- `{pending: true}`: call it again. After 5 minutes still pending, the flow failed: say so and stop writing.
+- `{pending: true}`: call it again. A rebuild takes about a minute and a half. After 5 minutes still pending, the flow failed: say so and stop writing.
 - `status: "Done"`: written.
 - `status: "Refused"`: `result` says why. "the page changed after it was read" means someone edited it in the meantime: read the page again (step 3), show the user that page again, and ask again. Never resend the same write.
 

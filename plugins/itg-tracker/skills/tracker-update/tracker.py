@@ -25,6 +25,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from datetime import datetime, timedelta
 from pathlib import Path, PureWindowsPath
 
@@ -34,6 +35,8 @@ CLAUDE_PROJECTS = Path.home() / ".claude" / "projects"
 MEMORY_INDEX_CAP = 4000
 COMMITS_SHOWN = 20
 LINES_SEARCHED_FOR_CWD = 50
+SAVE_ATTEMPTS = 6
+SAVE_WAIT_SECONDS = 0.2
 DOCS_SHOWN = 5
 HISTORY_COMMITS = 40
 HISTORY_DAYS = 730
@@ -127,6 +130,18 @@ def set_person(path: Path, name: str, user_id: int) -> None:
     save_registry(path, registry)
 
 
+def _replace(temporary: str, path: Path) -> None:
+    """os.replace, waiting out the moment Windows refuses because a scanner or indexer has the file open."""
+    for attempt in range(SAVE_ATTEMPTS):
+        try:
+            os.replace(temporary, path)
+            return
+        except PermissionError:
+            if attempt == SAVE_ATTEMPTS - 1:
+                raise
+            time.sleep(SAVE_WAIT_SECONDS)
+
+
 def save_registry(path: Path, registry: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(prefix=".registry-", suffix=".tmp", dir=path.parent)
@@ -134,7 +149,7 @@ def save_registry(path: Path, registry: dict) -> None:
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             json.dump(registry, file, indent=2, ensure_ascii=False)
             file.write("\n")
-        os.replace(temporary, path)
+        _replace(temporary, path)
     except BaseException:
         Path(temporary).unlink(missing_ok=True)
         raise
@@ -405,6 +420,26 @@ def project_folders(registry: dict) -> list[PureWindowsPath]:
     return found
 
 
+def registered_folders(registry: dict) -> list[PureWindowsPath]:
+    """The folder of every project that has a row, wherever it sits under a work folder.
+
+    A session can register a project nested deeper than its work folder (a tool inside a client's folder), which
+    listing the work folders' own children does not reach.
+    """
+    starts = [PureWindowsPath(registry["projects_root"])] if registry.get("projects_root") else []
+    starts += [folder.parent for folder, _, _ in work_folders(registry)]
+    found = []
+    for key, entry in registry["projects"].items():
+        if "row" not in entry:
+            continue
+        for start in starts:
+            candidate = start / PureWindowsPath(key)
+            if Path(str(candidate)).is_dir():
+                found.append(candidate)
+                break
+    return found
+
+
 def readme_of(folder: Path) -> str | None:
     for file in sorted(folder.glob("*.md")):
         if file.stem.casefold() == "readme":
@@ -421,7 +456,7 @@ def projects(claude_dir: Path, registry: dict, now: datetime | None = None) -> d
     """Each project folder whose project has a row, with the files and history its notes page can be drafted from."""
     now = now or now_local()
     found: dict[str, dict] = {}
-    for folder in project_folders(registry):
+    for folder in project_folders(registry) + registered_folders(registry):
         placed = _place(folder, registry)
         if placed is None:
             continue

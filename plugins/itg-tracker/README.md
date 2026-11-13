@@ -15,7 +15,7 @@ It never puts client data on the list: no rows, quote text, supplier or employee
 
 Every work item has a page in the ITG Notebook, section "Projects". Run `/itg-tracker:project-notes`, or ask Claude to "fill in my project notes pages". For each work item assigned to you that has a folder on your laptop, it drafts the page's sections from the project's README, docs, your own commits and its Claude memory notes, shows you one preview per page, and writes only after your yes.
 
-- While nobody has edited a page, it can rewrite the whole page.
+- While nobody has edited a page, it can rewrite the whole page. That takes about a minute and a half a page.
 - Once someone has typed on a page, it only fills sections that are still empty. It never replaces what a person wrote.
 - Run the tracker update once first: this skill uses its settings.
 

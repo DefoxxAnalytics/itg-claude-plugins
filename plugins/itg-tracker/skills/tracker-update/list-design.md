@@ -189,17 +189,19 @@ The `project-notes` skill fills in the pages of section 6. It cannot reach OneNo
   - `read`: returns the page's created and modified dates and its HTML in `Result`;
   - `fill` and `rebuild`: refuses unless the page's HTML still equals `Expected`, the HTML the skill read (line breaks and tabs ignored);
   - `fill`: runs the OneNote "Update page content" commands in `Content`. The skill only sends `append` commands aimed at the named blocks;
-  - `rebuild`: creates a new page from the HTML in `Content`, writes its link to the work item (keeping "Modified" and "Modified by", as in section 6), then deletes the old page.
-- **Who decides what may be written:** `skills/project-notes/notes.js`, in the browser.
-  - It allows `rebuild` only while the page says exactly what the page flow or the last `rebuild` put there, word for word.
+  - `rebuild`: also refuses when the page no longer equals the capture stored by the last `rebuild` of that work item ("someone has edited this page since it was last rebuilt"). Otherwise it creates a new page from the HTML in `Content`, writes its link to the work item (keeping "Modified" and "Modified by", as in section 6), deletes the old page, waits a minute, reads the new page back and stores that HTML in the request's `Result`. That capture is what the next `rebuild` is checked against.
+- **Who decides what may be written:** `skills/project-notes/notes.js`, in the browser, and the flow behind it.
+  - The helper allows `rebuild` only while the page says exactly what the page flow or the last `rebuild` put there, word for word.
   - Once a person has typed anything, it allows `fill` only, and only for sections that are still empty.
-  - The flow does not repeat this check, so a request made by hand could rebuild an edited page of the requester's own work item.
+  - The flow repeats the check since 13 Nov, so a request made by hand cannot rebuild a page edited after its last `rebuild` either. Steps: "Get items" finds the last Done `rebuild` request of the work item; "Compose" compares its `Result` with the page.
+  - Two gaps remain in the flow's own check, both covered by the helper: a page that was never rebuilt has no capture, and neither has a page whose capture failed (the request then stores the new page's link, as requests before 13 Nov did).
+  - A `rebuild` takes about a minute and a half, because a page cannot be read in the first seconds after it is created ("The specified resource ID does not exist").
 
 What OneNote allows, found by testing on 12 Nov:
 
 - A flow **cannot replace** part of a page. "Update page content" refuses `replace` on a block addressed by its `data-id` ("The PATCH target DIV for action replace is not supported"). Replacing needs ids that OneNote generates, and no standard connector returns them: "Get page content" leaves them out, and the Office 365 Groups connector's Graph request is refused for OneNote ("does not contain a valid authentication token"). Hence rebuild-or-fill.
 - `append` to a block addressed as `#<data-id>` works.
-- A page's `lastModifiedTime` **does not change** when a person types on the page in OneNote for the web. Never use it to tell whether a page was edited. The flow still carries a date check from before this was known; it never fires.
+- A page's `lastModifiedTime` **does not change** when a person types on the page in OneNote for the web. Never use it to tell whether a page was edited.
 - OneNote returns an empty line as `&#160;` and restyles everything, so compare pages by their text, never by their HTML, except for the `Expected` check, where both sides are OneNote's own output.
 - A rebuilt page gets a new address and loses its version history.
 - A page's web link contains its title, but OneNote does not always list it that way. "Create page" returns a link with the title in it (`…%2F<title>%7C<page id>%2F%29`); "Get pages for a specific section" can list the same page with the title part empty (`…%2F%7C<page id>%2F%29`). Both links open the page. So never compare whole links: the flow's "Filter array" matches on the page id inside the link, `@contains(item()?['links']?['oneNoteWebUrl']?['href'], last(split(first(split(body('Get_item')?['ProjectNotes'], '%2F%29')), '%7C')))`. A renamed page, or one OneNote lists without its title, is still found.

@@ -202,6 +202,10 @@ What OneNote allows, found by testing on 12 Nov:
 - A page's `lastModifiedTime` **does not change** when a person types on the page in OneNote for the web. Never use it to tell whether a page was edited. The flow still carries a date check from before this was known; it never fires.
 - OneNote returns an empty line as `&#160;` and restyles everything, so compare pages by their text, never by their HTML, except for the `Expected` check, where both sides are OneNote's own output.
 - A rebuilt page gets a new address and loses its version history.
+- A page's web link contains its title, but OneNote does not always list it that way. "Create page" returns a link with the title in it (`…%2F<title>%7C<page id>%2F%29`); "Get pages for a specific section" can list the same page with the title part empty (`…%2F%7C<page id>%2F%29`). Both links open the page. The flow finds a page by comparing whole links, so it lost the "Catalog Builder v2" page right after rebuilding it on 12 Nov, and it would lose any page a person renames.
+  - **Stopgap applied 13 Nov:** work item 11's "Project notes" link was rewritten to the title-less form OneNote lists, and the flow reads the page again.
+  - **Proper cure, not yet saved in the flow:** in "Filter array", match on the page id inside the link: `@contains(item()?['links']?['oneNoteWebUrl']?['href'], last(split(first(split(body('Get_item')?['ProjectNotes'], '%2F%29')), '%7C')))`. From 12 Nov about 12:35 the designer refused every save: it marks the SharePoint and OneNote connections "Invalid connection" although the Connections page shows them Connected and runs succeed.
+- OneNote can be slow: from 12 Nov about 12:30 its steps answered "BadGateway" and were retried, taking from 20 seconds to nearly 5 minutes where they had taken a second, so a request can stay Pending for several minutes.
 - Pages are written under the flow owner's name, whoever asked. The request list shows who asked.
 
 **Undo:** turn off or delete the flow; delete the request list. Pages already written stay as they are.

@@ -4,7 +4,7 @@ Claude Code plugins for the ITG team, published as a plugin marketplace (`itg-pl
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [`itg-tracker`](plugins/itg-tracker) | 1.4.0 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
+| [`itg-tracker`](plugins/itg-tracker) | 1.4.1 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
 
 ## Contents
 
@@ -201,6 +201,7 @@ then `/plugin` lists what can be updated. Start a new session after updating.
 
 | Version | What came with it |
 |---|---|
+| 1.4.1 | The notes flow refuses to rewrite a page edited since its last rewrite; `tracker.py projects` finds projects nested below a work folder; saving settings survives a briefly locked file |
 | 1.4.0 | The `project-notes` skill; `tracker.py projects` |
 | 1.3.0 | A notebook page for every work item; the skill leaves the "Project notes" link alone |
 | earlier | The `tracker-update` skill, first-run setup, the evening task |

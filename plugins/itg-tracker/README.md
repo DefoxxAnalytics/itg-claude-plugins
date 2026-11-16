@@ -21,9 +21,9 @@ Every work item has a page in the ITG Notebook, section "Projects". Run `/itg-tr
 
 ## You need
 
-- Windows, with Claude Code and the **Claude in Chrome** extension connected.
+- Windows or a Mac, with Claude Code and the **Claude in Chrome** extension connected.
 - Chrome signed in to SharePoint, with edit rights on the ITG Progress tracker list.
-- Python 3.11 or later, and git.
+- Python 3.11 or later, and git. On a Mac, the commands use `python3`.
 
 ## Install
 
@@ -39,7 +39,7 @@ Or in two steps on any version: `/plugin marketplace add DefoxxAnalytics/itg-cla
 
 Run `/itg-tracker:tracker-update`, or ask Claude to "update the progress tracker". With no settings yet, it asks:
 
-- which folders hold your work: as many as you like, anywhere on the laptop (for example `D:\Dev` and a OneDrive folder);
+- which folders hold your work: as many as you like, anywhere on the laptop (for example `D:\Dev` and a OneDrive folder, or `/Users/<you>/Projects` on a Mac);
 - for each, the Business it belongs to, and whether it is a folder of projects or one project on its own;
 - the short name for the People column.
 
@@ -49,10 +49,10 @@ To change the folders later, ask Claude, or run `tracker.py add-folder "<path>" 
 
 ## Every evening (optional)
 
-On the first run Claude offers a Windows scheduled task, "Claude tracker update". At 17:30 on weekdays, or at your next logon if you missed it, the task checks for anything new to post. Only then does it open a Claude window with the preview, which waits for your yes.
+On the first run Claude offers a scheduled job, "Claude tracker update" (a scheduled task on Windows, a launchd job on a Mac). At 17:30 on weekdays (on Windows, at your next logon if you missed it; on a Mac, when it wakes if it was asleep), the job checks for anything new to post. Only then does it open a Claude window with the preview, which waits for your yes.
 
-- Set it up later: `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00`.
-- Remove it: run the same command with `-Remove`.
+- Set it up later on Windows: `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00`. Remove it: the same command with `-Remove`.
+- On a Mac: `bash "<skill folder>/schedule.sh"`, optionally with `--at 18:00`. Remove it: the same command with `--remove`.
 
 ## Files
 
@@ -64,7 +64,8 @@ On the first run Claude offers a Windows scheduled task, "Claude tracker update"
 | `skills/project-notes/SKILL.md` | The second skill: find the projects, read the pages, draft, preview, write, check |
 | `skills/project-notes/notes.js` | Runs in the browser tab: reads a page, decides what may be written, sends the write |
 | `skills/tracker-update/list-design.md` | How the list itself is formatted (gold rows, Power Apps form with its rules, branded board), the flows on it (assignment message, notebook page per item, notes writer) and how to undo each |
-| `skills/tracker-update/scheduled.ps1`, `schedule.ps1` | The optional 17:30 task |
+| `skills/tracker-update/scheduled.ps1`, `schedule.ps1` | The optional 17:30 task on Windows |
+| `skills/tracker-update/scheduled.sh`, `schedule.sh` | The same task on a Mac |
 | `skills/tracker-update/registry.template.json` | The settings every person starts from |
 | `tests/test_tracker.py` | Tests for `tracker.py` |
 | `tests/test_notes.js` | Tests for `notes.js` (`node --test tests/test_notes.js`) |

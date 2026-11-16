@@ -16,6 +16,8 @@
 Each person's settings live in ~/.claude/tracker-update/registry.json (or $TRACKER_REGISTRY), outside the skill,
 so that updating the skill keeps them. Of each session file it reads only the working folder ("cwd"), never the
 conversation.
+
+Paths follow the laptop's own style: D:\\Dev on Windows, /Users/<you>/Dev on a Mac. On a Mac, run it with python3.
 """
 
 import argparse
@@ -27,7 +29,7 @@ import sys
 import tempfile
 import time
 from datetime import datetime, timedelta
-from pathlib import Path, PureWindowsPath
+from pathlib import Path, PurePath
 
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "registry.template.json"
@@ -41,6 +43,7 @@ DOCS_SHOWN = 5
 HISTORY_COMMITS = 40
 HISTORY_DAYS = 730
 FIELD = "\x1f"
+FULL_PATH_EXAMPLE = "D:\\Dev" if os.name == "nt" else "/Users/<you>/Dev"
 
 
 def now_local() -> datetime:
@@ -100,10 +103,11 @@ def init_registry(path: Path, projects_root: str, roots: dict, people: str, fold
 
 
 def folder_entry(path: str, business: str, single: bool) -> dict:
-    """A work folder for the settings; it must be a full path, such as D:\\Dev."""
-    if not PureWindowsPath(path).is_absolute():
-        raise ValueError(f"Give the full path of the folder, such as D:\\Dev: {path}")
-    return {"path": str(PureWindowsPath(path)), "business": business, "kind": PROJECT if single else PROJECTS}
+    """A work folder for the settings; it must be a full path, such as D:\\Dev or /Users/ada/Dev (~ is allowed)."""
+    path = os.path.expanduser(path)
+    if not PurePath(path).is_absolute():
+        raise ValueError(f"Give the full path of the folder, such as {FULL_PATH_EXAMPLE}: {path}")
+    return {"path": str(PurePath(path)), "business": business, "kind": PROJECT if single else PROJECTS}
 
 
 def add_folder(path: Path, folder: str, business: str, single: bool = False) -> None:
@@ -115,7 +119,7 @@ def add_folder(path: Path, folder: str, business: str, single: bool = False) -> 
 
 
 def remove_folder(path: Path, folder: str) -> bool:
-    wanted = str(PureWindowsPath(folder)).casefold()
+    wanted = str(PurePath(os.path.expanduser(folder))).casefold()
     registry = load_registry(path)
     folders = registry.get("folders", [])
     kept = [item for item in folders if item["path"].casefold() != wanted]
@@ -208,11 +212,11 @@ def resolve(registry: dict, key: str) -> tuple[str, dict | None] | None:
 PROJECTS, PROJECT = "projects", "project"
 
 
-def _inside(path: PureWindowsPath, folder: PureWindowsPath) -> bool:
+def _inside(path: PurePath, folder: PurePath) -> bool:
     return len(path.parts) >= len(folder.parts) and all(a.casefold() == b.casefold() for a, b in zip(path.parts, folder.parts))
 
 
-def work_folders(registry: dict) -> list[tuple[PureWindowsPath, str, str]]:
+def work_folders(registry: dict) -> list[tuple[PurePath, str, str]]:
     """Every work folder as (path, business, kind), most specific first.
 
     A folder of kind "projects" holds projects: each path inside it is a project, the folder alone is none. A folder of
@@ -221,35 +225,35 @@ def work_folders(registry: dict) -> list[tuple[PureWindowsPath, str, str]]:
     """
     found = []
     if registry.get("projects_root"):
-        projects_root = PureWindowsPath(registry["projects_root"])
+        projects_root = PurePath(registry["projects_root"])
         for name, business in registry.get("roots", {}).items():
-            parts = PureWindowsPath(name).parts
+            parts = PurePath(name).parts
             found.append((projects_root.joinpath(*parts), business, PROJECT if len(parts) > 1 else PROJECTS))
     for folder in registry.get("folders", []):
-        found.append((PureWindowsPath(folder["path"]), folder["business"], folder.get("kind", PROJECTS)))
+        found.append((PurePath(folder["path"]), folder["business"], folder.get("kind", PROJECTS)))
     return sorted(found, key=lambda item: -len(item[0].parts))
 
 
-def _place(path: PureWindowsPath, registry: dict) -> tuple[str, str, PureWindowsPath] | None:
+def _place(path: PurePath, registry: dict) -> tuple[str, str, PurePath] | None:
     """The key, business and folder of the project holding this path, or None when it is not work.
 
     Keys are relative to `projects_root` when the project is under it (so older settings keep their keys), and
     otherwise start at the work folder's own name ("Dev\\Beta" for a project in D:\\Dev).
     """
-    projects_root = PureWindowsPath(registry["projects_root"]) if registry.get("projects_root") else None
+    projects_root = PurePath(registry["projects_root"]) if registry.get("projects_root") else None
     for folder, business, kind in work_folders(registry):
         if not _inside(path, folder):
             continue
         if kind == PROJECT:
-            project = PureWindowsPath(*path.parts[:len(folder.parts)])
+            project = PurePath(*path.parts[:len(folder.parts)])
         elif len(path.parts) > len(folder.parts):
             project = path
         else:
             continue
         if projects_root is not None and _inside(project, projects_root) and len(project.parts) > len(projects_root.parts):
-            key = PureWindowsPath(*project.parts[len(projects_root.parts):])
+            key = PurePath(*project.parts[len(projects_root.parts):])
         else:
-            key = PureWindowsPath(*project.parts[len(folder.parts) - 1:])
+            key = PurePath(*project.parts[len(folder.parts) - 1:])
         return str(key), business, project
     return None
 
@@ -276,17 +280,20 @@ def repository(folder: Path) -> Path | None:
 
 
 def same_folder(one: Path, other: Path) -> bool:
-    return os.path.normcase(os.path.abspath(one)) == os.path.normcase(os.path.abspath(other))
+    """True for the same folder, also when one path goes through a link (on a Mac, /var is /private/var)."""
+    if os.path.normcase(os.path.abspath(one)) == os.path.normcase(os.path.abspath(other)):
+        return True
+    return os.path.normcase(os.path.realpath(one)) == os.path.normcase(os.path.realpath(other))
 
 
 def project_of(cwd: str, registry: dict) -> tuple[str, Path, str] | None:
     """The project key, folder and business of a session's working folder, or None when it is not work."""
-    placed = _place(PureWindowsPath(cwd), registry)
+    placed = _place(PurePath(cwd), registry)
     if placed is None:
         return None
     repo = repository(Path(cwd))
     if repo is not None:
-        repo_placed = _place(PureWindowsPath(repo), registry)
+        repo_placed = _place(PurePath(repo), registry)
         if repo_placed is not None:
             return repo_placed[0], repo, repo_placed[1]
     return placed[0], Path(str(placed[2])), placed[1]
@@ -406,7 +413,7 @@ def pending(claude_dir: Path, registry: dict, since: datetime | None = None, now
     return sum(1 for project in gather(claude_dir, registry, since=since, now=now)["projects"] if project["new"])
 
 
-def project_folders(registry: dict) -> list[PureWindowsPath]:
+def project_folders(registry: dict) -> list[PurePath]:
     """Every folder on this machine that the settings count as one project."""
     found = []
     for folder, _, kind in work_folders(registry):
@@ -416,24 +423,24 @@ def project_folders(registry: dict) -> list[PureWindowsPath]:
         if kind == PROJECT:
             found.append(folder)
         else:
-            found.extend(PureWindowsPath(str(child)) for child in here.iterdir() if child.is_dir())
+            found.extend(PurePath(str(child)) for child in here.iterdir() if child.is_dir())
     return found
 
 
-def registered_folders(registry: dict) -> list[PureWindowsPath]:
+def registered_folders(registry: dict) -> list[PurePath]:
     """The folder of every project that has a row, wherever it sits under a work folder.
 
     A session can register a project nested deeper than its work folder (a tool inside a client's folder), which
     listing the work folders' own children does not reach.
     """
-    starts = [PureWindowsPath(registry["projects_root"])] if registry.get("projects_root") else []
+    starts = [PurePath(registry["projects_root"])] if registry.get("projects_root") else []
     starts += [folder.parent for folder, _, _ in work_folders(registry)]
     found = []
     for key, entry in registry["projects"].items():
         if "row" not in entry:
             continue
         for start in starts:
-            candidate = start / PureWindowsPath(key)
+            candidate = start / PurePath(key)
             if Path(str(candidate)).is_dir():
                 found.append(candidate)
                 break

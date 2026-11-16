@@ -27,6 +27,8 @@ A page also counts as edited when the work item's title, business, assignee or d
 
 ## 1. Find the projects
 
+On a Mac, use `python3` wherever this skill says `python`.
+
 ```bash
 python "${CLAUDE_SKILL_DIR}/../tracker-update/tracker.py" projects
 ```

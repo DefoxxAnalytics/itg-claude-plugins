@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import pytest
 
@@ -13,6 +13,11 @@ import tracker
 
 NOW = datetime.now().astimezone().replace(microsecond=0)
 TODAY = NOW.replace(hour=0, minute=0, second=0)
+
+
+def key(text: str) -> str:
+    """A project key as this laptop writes it: VSTX-Projects\\Alpha on Windows, VSTX-Projects/Alpha on a Mac."""
+    return str(PurePath(*text.split("\\")))
 
 
 @pytest.fixture
@@ -113,22 +118,22 @@ def test_only_work_roots_are_kept(world):
     make_session(claude_dir, projects_root / "VSTX-Projects", NOW)
     make_session(claude_dir, projects_root.parent / "Elsewhere", NOW)
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"VSTX-Projects\Alpha", r"XLC-Projects\Beta"]
+    assert keys(result) == [key(r"VSTX-Projects\Alpha"), key(r"XLC-Projects\Beta")]
     business = {project["key"]: project["business"] for project in result["projects"]}
-    assert business == {r"VSTX-Projects\Alpha": "Versatex", r"XLC-Projects\Beta": "XLC"}
+    assert business == {key(r"VSTX-Projects\Alpha"): "Versatex", key(r"XLC-Projects\Beta"): "XLC"}
 
 
 def test_root_names_match_whatever_their_case(world):
     claude_dir, projects_root, _ = world
     make_session(claude_dir, projects_root / "vstx-projects" / "Alpha", NOW)
-    assert keys(run_gather(world, since=TODAY)) == [r"vstx-projects\Alpha"]
+    assert keys(run_gather(world, since=TODAY)) == [key(r"vstx-projects\Alpha")]
 
 
 def test_sessions_before_since_are_left_out(world):
     claude_dir, projects_root, _ = world
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Old", NOW - timedelta(days=3))
     make_session(claude_dir, projects_root / "VSTX-Projects" / "New", NOW)
-    assert keys(run_gather(world, since=TODAY)) == [r"VSTX-Projects\New"]
+    assert keys(run_gather(world, since=TODAY)) == [key(r"VSTX-Projects\New")]
 
 
 def test_sessions_of_one_project_are_counted_together(world):
@@ -138,7 +143,7 @@ def test_sessions_of_one_project_are_counted_together(world):
     make_session(claude_dir, alpha, NOW, "b.jsonl")
     make_session(claude_dir, alpha / "sub", NOW, "c.jsonl")
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"VSTX-Projects\Alpha", r"VSTX-Projects\Alpha\sub"]
+    assert keys(result) == [key(r"VSTX-Projects\Alpha"), key(r"VSTX-Projects\Alpha\sub")]
     assert result["projects"][0]["sessions"] == 2
 
 
@@ -151,7 +156,7 @@ def test_a_worktree_and_a_subfolder_fold_into_their_repo(world):
     make_session(claude_dir, worktree, NOW, "a.jsonl")
     make_session(claude_dir, repo / "sub", NOW, "b.jsonl")
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"VSTX-Projects\Repo"]
+    assert keys(result) == [key(r"VSTX-Projects\Repo")]
     assert result["projects"][0]["sessions"] == 2
 
 
@@ -171,7 +176,7 @@ def test_new_is_judged_against_the_last_post(world):
     claude_dir, projects_root, registry_path = world
     repo = make_repo(projects_root / "VSTX-Projects" / "Repo", [NOW - timedelta(hours=3)])
     make_session(claude_dir, repo, NOW)
-    tracker.record(registry_path, r"VSTX-Projects\Repo", 7, now=NOW - timedelta(hours=1))
+    tracker.record(registry_path, key(r"VSTX-Projects\Repo"), 7, now=NOW - timedelta(hours=1))
     project = run_gather(world, since=TODAY)["projects"][0]
     assert project["new"] is False
     assert project["registry"]["row"] == 7
@@ -184,7 +189,7 @@ def test_the_draft_window_starts_at_the_start_of_the_day_of_the_last_post(world)
     morning = TODAY + timedelta(minutes=1)
     repo = make_repo(projects_root / "VSTX-Projects" / "Repo", [TODAY - timedelta(hours=1), morning])
     make_session(claude_dir, repo, NOW)
-    tracker.record(registry_path, r"VSTX-Projects\Repo", 7, now=morning + timedelta(minutes=1))
+    tracker.record(registry_path, key(r"VSTX-Projects\Repo"), 7, now=morning + timedelta(minutes=1))
     project = run_gather(world, since=TODAY)["projects"][0]
     assert [commit["subject"] for commit in project["commits"]] == ["change 1"]
     assert project["window_start"] == TODAY.isoformat()
@@ -194,7 +199,7 @@ def test_the_draft_window_starts_at_local_midnight_whatever_zone_the_post_was_sa
     claude_dir, projects_root, registry_path = world
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Alpha", NOW)
     posted_in_utc = (TODAY + timedelta(minutes=1)).astimezone(timezone.utc)
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=posted_in_utc)
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=posted_in_utc)
     assert run_gather(world, since=TODAY)["projects"][0]["window_start"] == TODAY.isoformat()
 
 
@@ -216,7 +221,7 @@ def test_memory_changes_count_as_new_and_are_listed(world):
     (memory / "state.md").write_text("state", encoding="utf-8")
     earlier = (NOW - timedelta(hours=5)).timestamp()
     os.utime(memory / "MEMORY.md", (earlier, earlier))
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 3, now=NOW - timedelta(hours=2))
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 3, now=NOW - timedelta(hours=2))
     project = run_gather(world, since=TODAY)["projects"][0]
     assert project["new"] is True
     assert [item["name"] for item in project["memory_changed"]] == ["state.md"]
@@ -257,11 +262,11 @@ def test_alias_and_ignore(world):
     claude_dir, projects_root, registry_path = world
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Old-name", NOW)
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Skip", NOW)
-    tracker.record(registry_path, r"VSTX-Projects\Main", 4, now=NOW - timedelta(days=1))
-    tracker.alias(registry_path, r"VSTX-Projects\Old-name", r"VSTX-Projects\Main")
-    tracker.ignore(registry_path, r"vstx-projects\skip")
+    tracker.record(registry_path, key(r"VSTX-Projects\Main"), 4, now=NOW - timedelta(days=1))
+    tracker.alias(registry_path, key(r"VSTX-Projects\Old-name"), key(r"VSTX-Projects\Main"))
+    tracker.ignore(registry_path, key(r"vstx-projects\skip"))
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"VSTX-Projects\Main"]
+    assert keys(result) == [key(r"VSTX-Projects\Main")]
     assert result["projects"][0]["registry"]["row"] == 4
 
 
@@ -269,7 +274,7 @@ def test_pending_counts_only_new_projects(world):
     claude_dir, projects_root, registry_path = world
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Fresh", NOW)
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Posted", NOW)
-    tracker.record(registry_path, r"VSTX-Projects\Posted", 9, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Posted"), 9, now=NOW)
     registry = tracker.load_registry(registry_path)
     assert tracker.pending(claude_dir, registry, since=TODAY, now=NOW) == 1
 
@@ -279,7 +284,7 @@ def test_since_defaults_to_the_last_run(world):
     make_session(claude_dir, projects_root / "VSTX-Projects" / "Before", NOW - timedelta(hours=3))
     make_session(claude_dir, projects_root / "VSTX-Projects" / "After", NOW)
     tracker.ran(registry_path, now=NOW - timedelta(hours=1))
-    assert keys(run_gather(world)) == [r"VSTX-Projects\After"]
+    assert keys(run_gather(world)) == [key(r"VSTX-Projects\After")]
 
 
 def test_registry_writes_keep_other_entries_and_leave_no_temp_file(world):
@@ -303,7 +308,7 @@ def test_cli_prints_json(world, capsys):
         "gather", "--since", TODAY.isoformat(),
     ])
     assert code == 0
-    assert [project["key"] for project in json.loads(capsys.readouterr().out)["projects"]] == [r"VSTX-Projects\Alpha"]
+    assert [project["key"] for project in json.loads(capsys.readouterr().out)["projects"]] == [key(r"VSTX-Projects\Alpha")]
     assert tracker.main(["--registry", str(registry_path), "--claude-dir", str(claude_dir), "pending"]) == 0
     assert capsys.readouterr().out.strip() == "1"
 
@@ -392,7 +397,7 @@ def test_a_setting_can_name_one_project_folder_without_its_neighbours(world):
     make_session(claude_dir, projects_root / "DEF-Projects" / "Other", NOW, "c.jsonl")
     make_session(claude_dir, projects_root / "DEF-Projects", NOW, "d.jsonl")
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"DEF-Projects\Team-tools"]
+    assert keys(result) == [key(r"DEF-Projects\Team-tools")]
     project = result["projects"][0]
     assert project["business"] == "Corporate"
     assert project["sessions"] == 2
@@ -402,12 +407,12 @@ def test_a_setting_can_name_one_project_folder_without_its_neighbours(world):
 def test_a_named_project_folder_that_is_a_repo_reads_its_commits(world):
     claude_dir, projects_root, registry_path = world
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
-    registry["roots"][r"def-projects\team-tools"] = "Corporate"
+    registry["roots"][key(r"def-projects\team-tools")] = "Corporate"
     registry_path.write_text(json.dumps(registry), encoding="utf-8")
     repo = make_repo(projects_root / "DEF-Projects" / "Team-tools", [NOW - timedelta(minutes=5)])
     make_session(claude_dir, repo / "plugins", NOW)
     project = run_gather(world, since=TODAY)["projects"][0]
-    assert project["key"] == r"DEF-Projects\Team-tools"
+    assert project["key"] == key(r"DEF-Projects\Team-tools")
     assert [commit["subject"] for commit in project["commits"]] == ["change 0"]
 
 
@@ -426,9 +431,9 @@ def test_more_than_one_top_folder(world, tmp_path):
     make_session(claude_dir, dev, NOW, "c.jsonl")
     make_session(claude_dir, tmp_path / "Elsewhere" / "Gamma", NOW, "d.jsonl")
     result = run_gather(world, since=TODAY)
-    assert keys(result) == [r"Dev\Beta", r"VSTX-Projects\Alpha"]
+    assert keys(result) == [key(r"Dev\Beta"), key(r"VSTX-Projects\Alpha")]
     business = {project["key"]: project["business"] for project in result["projects"]}
-    assert business == {r"Dev\Beta": "Corporate", r"VSTX-Projects\Alpha": "Versatex"}
+    assert business == {key(r"Dev\Beta"): "Corporate", key(r"VSTX-Projects\Alpha"): "Versatex"}
 
 
 def test_a_folder_anywhere_can_be_one_project(world, tmp_path):
@@ -451,7 +456,7 @@ def test_settings_need_no_main_projects_folder(tmp_path):
     registry = {"roots": {}, "projects": {}, "folders": [{"path": str(dev), "business": "Corporate", "kind": "projects"}]}
     make_session(claude_dir, dev / "Beta", NOW)
     result = tracker.gather(claude_dir, registry, since=TODAY, now=NOW)
-    assert [project["key"] for project in result["projects"]] == [r"Dev\Beta"]
+    assert [project["key"] for project in result["projects"]] == [key(r"Dev\Beta")]
 
 
 def test_cli_init_takes_folders_and_projects_anywhere(tmp_path):
@@ -498,10 +503,10 @@ def test_projects_lists_every_folder_that_has_a_row(world):
     (projects_root / "VSTX-Projects" / "No-row").mkdir()
     (projects_root / "VSTX-Projects" / "Skip").mkdir()
     (projects_root / "Private" / "Diary").mkdir(parents=True)
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW, title="Alpha rollout")
-    tracker.ignore(registry_path, r"VSTX-Projects\Skip")
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW, title="Alpha rollout")
+    tracker.ignore(registry_path, key(r"VSTX-Projects\Skip"))
     result = run_projects(world)
-    assert keys(result) == [r"VSTX-Projects\Alpha"]
+    assert keys(result) == [key(r"VSTX-Projects\Alpha")]
     project = result["projects"][0]
     assert (project["row"], project["title"], project["business"]) == (7, "Alpha rollout", "Versatex")
     assert Path(project["path"]) == alpha
@@ -511,10 +516,10 @@ def test_projects_lists_a_folder_under_the_project_it_is_an_alias_of(world):
     _, projects_root, registry_path = world
     (projects_root / "VSTX-Projects" / "Main").mkdir(parents=True)
     (projects_root / "VSTX-Projects" / "Old-name").mkdir()
-    tracker.record(registry_path, r"VSTX-Projects\Main", 4, now=NOW)
-    tracker.alias(registry_path, r"VSTX-Projects\Old-name", r"VSTX-Projects\Main")
+    tracker.record(registry_path, key(r"VSTX-Projects\Main"), 4, now=NOW)
+    tracker.alias(registry_path, key(r"VSTX-Projects\Old-name"), key(r"VSTX-Projects\Main"))
     result = run_projects(world)
-    assert [(project["key"], project["row"]) for project in result["projects"]] == [(r"VSTX-Projects\Main", 4)] * 2
+    assert [(project["key"], project["row"]) for project in result["projects"]] == [(key(r"VSTX-Projects\Main"), 4)] * 2
     assert sorted(Path(project["path"]).name for project in result["projects"]) == ["Main", "Old-name"]
 
 
@@ -541,7 +546,7 @@ def test_projects_names_the_readme_and_the_five_newest_docs(world):
         page.write_text("x", encoding="utf-8")
         stamp = (NOW - timedelta(hours=number)).timestamp()
         os.utime(page, (stamp, stamp))
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW)
     project = run_projects(world)["projects"][0]
     assert Path(project["readme"]).name == "ReadMe.md"
     assert [Path(doc).name for doc in project["docs"]] == [f"page{number}.md" for number in range(5)]
@@ -554,7 +559,7 @@ def test_projects_reads_the_person_s_commits_and_the_memory(world):
     memory.mkdir()
     (memory / "MEMORY.md").write_text("- [Decision](decision.md)", encoding="utf-8")
     (memory / "decision.md").write_text("We chose X.", encoding="utf-8")
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW)
     project = run_projects(world)["projects"][0]
     assert [commit["subject"] for commit in project["commits"]] == ["change 1", "change 0"]
     assert project["memory_index"] == "- [Decision](decision.md)"
@@ -564,7 +569,7 @@ def test_projects_reads_the_person_s_commits_and_the_memory(world):
 def test_a_project_without_readme_docs_git_or_memory_still_lists(world):
     _, projects_root, registry_path = world
     (projects_root / "VSTX-Projects" / "Bare").mkdir(parents=True)
-    tracker.record(registry_path, r"VSTX-Projects\Bare", 3, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Bare"), 3, now=NOW)
     project = run_projects(world)["projects"][0]
     assert (project["readme"], project["docs"], project["commits"], project["memory_notes"]) == (None, [], [], [])
 
@@ -572,7 +577,7 @@ def test_a_project_without_readme_docs_git_or_memory_still_lists(world):
 def test_cli_projects_prints_json(world, capsys):
     claude_dir, projects_root, registry_path = world
     (projects_root / "VSTX-Projects" / "Alpha").mkdir(parents=True)
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW)
     assert tracker.main(["--registry", str(registry_path), "--claude-dir", str(claude_dir), "projects"]) == 0
     assert [project["row"] for project in json.loads(capsys.readouterr().out)["projects"]] == [7]
 
@@ -581,16 +586,16 @@ def test_projects_lists_a_registered_project_nested_deeper_than_its_work_folder(
     _, projects_root, registry_path = world
     nested = projects_root / "VSTX-Projects" / "Client" / "Tool"
     nested.mkdir(parents=True)
-    tracker.record(registry_path, r"VSTX-Projects\Client\Tool", 10, now=NOW, title="Tool v1")
+    tracker.record(registry_path, key(r"VSTX-Projects\Client\Tool"), 10, now=NOW, title="Tool v1")
     result = run_projects(world)
-    assert [(project["key"], project["row"]) for project in result["projects"]] == [(r"VSTX-Projects\Client\Tool", 10)]
+    assert [(project["key"], project["row"]) for project in result["projects"]] == [(key(r"VSTX-Projects\Client\Tool"), 10)]
     assert Path(result["projects"][0]["path"]) == nested
     assert result["projects"][0]["business"] == "Versatex"
 
 
 def test_projects_skips_a_registered_project_whose_folder_is_not_on_this_machine(world):
     _, _, registry_path = world
-    tracker.record(registry_path, r"VSTX-Projects\Gone", 6, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Gone"), 6, now=NOW)
     assert run_projects(world)["projects"] == []
 
 
@@ -606,9 +611,9 @@ def test_saving_settings_waits_out_a_file_that_is_briefly_locked(world, monkeypa
 
     monkeypatch.setattr(tracker.os, "replace", locked_twice)
     monkeypatch.setattr(tracker.time, "sleep", lambda seconds: None)
-    tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+    tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW)
     assert len(calls) == 3
-    assert tracker.load_registry(registry_path)["projects"][r"VSTX-Projects\Alpha"]["row"] == 7
+    assert tracker.load_registry(registry_path)["projects"][key(r"VSTX-Projects\Alpha")]["row"] == 7
     assert list(registry_path.parent.glob(".registry-*.tmp")) == []
 
 
@@ -621,5 +626,33 @@ def test_saving_settings_gives_up_on_a_file_that_stays_locked(world, monkeypatch
     monkeypatch.setattr(tracker.os, "replace", always_locked)
     monkeypatch.setattr(tracker.time, "sleep", lambda seconds: None)
     with pytest.raises(PermissionError):
-        tracker.record(registry_path, r"VSTX-Projects\Alpha", 7, now=NOW)
+        tracker.record(registry_path, key(r"VSTX-Projects\Alpha"), 7, now=NOW)
     assert list(registry_path.parent.glob(".registry-*.tmp")) == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a Mac path")
+def test_a_mac_folder_is_a_full_path():
+    assert tracker.folder_entry("/Users/ada/Dev", "Corporate", single=False) == {
+        "path": "/Users/ada/Dev", "business": "Corporate", "kind": "projects",
+    }
+    with pytest.raises(ValueError, match="/Users/<you>/Dev"):
+        tracker.folder_entry("Users/ada/Dev", "XLC", single=False)
+
+
+def test_a_folder_may_start_from_home(monkeypatch, tmp_path):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    entry = tracker.folder_entry(str(Path("~") / "Dev"), "XLC", single=True)
+    assert entry == {"path": str(tmp_path / "Dev"), "business": "XLC", "kind": "project"}
+
+
+def test_same_folder_sees_through_a_link(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except OSError:
+        pytest.skip("this laptop cannot make links")
+    assert tracker.same_folder(link, real)
+    assert not tracker.same_folder(link, tmp_path)

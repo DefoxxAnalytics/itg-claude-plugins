@@ -4,7 +4,7 @@ Claude Code plugins for the ITG team, published as a plugin marketplace (`itg-pl
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [`itg-tracker`](plugins/itg-tracker) | 1.4.1 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
+| [`itg-tracker`](plugins/itg-tracker) | 1.5.0 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
 
 ## Contents
 
@@ -35,9 +35,9 @@ The tracker holds status: what changed, what comes next. The notebook page holds
 
 ## Before you install
 
-- Windows, with Claude Code and the **Claude in Chrome** extension connected.
+- Windows or a Mac, with Claude Code and the **Claude in Chrome** extension connected.
 - Chrome signed in to SharePoint, with edit rights on the ITG "Progress tracker list". Site members have them.
-- Python 3.11 or later, and git. The helper uses the Python standard library only.
+- Python 3.11 or later, and git. The helper uses the Python standard library only. On a Mac, the commands use `python3`.
 - Read access to this repository, and git signed in to GitHub (for example with `gh auth login`). The repository is private.
 
 ## Install
@@ -99,12 +99,14 @@ Work items of yours with no folder on this laptop are listed in the preview and 
 
 ### The evening task (optional)
 
-A Windows scheduled task, "Claude tracker update". At 17:30 on weekdays, or at your next logon if you missed it, it checks whether anything is waiting to be posted. Only then does it open a Claude window with the preview, which waits for your yes.
+A scheduled job, "Claude tracker update": a scheduled task on Windows, a launchd job on a Mac. At 17:30 on weekdays (on Windows, at your next logon if you missed it; on a Mac, when it wakes if it was asleep), it checks whether anything is waiting to be posted. Only then does it open a Claude window with the preview, which waits for your yes.
 
 | To | Run |
 |---|---|
-| Set it up, or change the time | `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00` |
-| Remove it | the same command with `-Remove` |
+| Set it up, or change the time (Windows) | `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00` |
+| Remove it (Windows) | the same command with `-Remove` |
+| Set it up, or change the time (Mac) | `bash "<skill folder>/schedule.sh"`, optionally with `--at 18:00` |
+| Remove it (Mac) | the same command with `--remove` |
 
 `<skill folder>` is the plugin's `skills\tracker-update` folder. Claude can run this for you.
 
@@ -201,6 +203,7 @@ then `/plugin` lists what can be updated. Start a new session after updating.
 
 | Version | What came with it |
 |---|---|
+| 1.5.0 | Works on a Mac: folder paths in the Mac's own style, `python3`, and a Mac version of the 17:30 task |
 | 1.4.1 | The notes flow refuses to rewrite a page edited since its last rewrite; `tracker.py projects` finds projects nested below a work folder; saving settings survives a briefly locked file |
 | 1.4.0 | The `project-notes` skill; `tracker.py projects` |
 | 1.3.0 | A notebook page for every work item; the skill leaves the "Project notes" link alone |
@@ -235,7 +238,8 @@ plugins/itg-tracker/
     tracker.py                         finds the projects and keeps your settings
     sharepoint.md                      the browser snippets: read rows, write a batch, read a row's history
     list-design.md                     how the list, its form and its flows are built, and how to undo each
-    schedule.ps1, scheduled.ps1        the optional 17:30 task
+    schedule.ps1, scheduled.ps1        the optional 17:30 task on Windows
+    schedule.sh, scheduled.sh          the same task on a Mac
     registry.template.json             the settings every person starts from
   skills/project-notes/
     SKILL.md                           the skill: find the projects, read the pages, draft, preview, write, check

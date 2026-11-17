@@ -101,6 +101,8 @@ Work items of yours with no folder on this laptop are listed in the preview and 
 
 A scheduled job, "Claude tracker update": a scheduled task on Windows, a launchd job on a Mac. At 17:30 on weekdays (on Windows, at your next logon if you missed it; on a Mac, when it wakes if it was asleep), it checks whether anything is waiting to be posted. Only then does it open a Claude window with the preview, which waits for your yes.
 
+On Windows the task does not start while the laptop runs on battery. Each check is logged, as counts only, in `~/.claude/tracker-update/scheduled.log`.
+
 | To | Run |
 |---|---|
 | Set it up, or change the time (Windows) | `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00` |
@@ -224,6 +226,7 @@ then `/plugin` lists what can be updated. Start a new session after updating.
 | A page write says "someone has edited this page since it was last rebuilt" | The page now holds a person's text, so it can no longer be rewritten whole. Run the skill again: it will offer to fill the empty sections only. |
 | A page request stays pending for more than 5 minutes | The flow failed or Microsoft's services are slow. Tell the flow owner; do not send the same write again. |
 | A work item of yours is listed as "no folder on this laptop" | Tie its folder to the row with `tracker.py record`, or leave it: its page stays yours to write by hand. |
+| The evening window did not open | Read the last lines of `~/.claude/tracker-update/scheduled.log`. "nothing pending" means there was nothing to post. No line for that day means the task did not start: on Windows the laptop was on battery at 17:30, on a Mac it was shut down. |
 | `git` cannot fetch the marketplace | You need read access to the repository and git signed in to GitHub (`gh auth login`). |
 
 ## Repository layout
@@ -256,6 +259,12 @@ plugins/itg-tracker/
   python -m pytest plugins/itg-tracker/tests -q
   node --test plugins/itg-tracker/tests/test_notes.js
   ```
+  On Windows two tests are skipped: the Mac path test, and the link test when your account cannot create symlinks.
+- **`tracker.py` follows the laptop's own path style** (`D:\Dev` on Windows, `/Users/<you>/Dev` on a Mac), so a change to it must pass on both. From Windows, the Mac-style path code can be checked in a Linux container (Docker Desktop, in PowerShell from the repository root):
+  ```
+  docker run --rm -v "${PWD}:/src:ro" python:3.12 bash -c "cp -r /src /work && cd /work && git config --global user.email t@example.com && git config --global user.name T && pip install -q pytest && python -m pytest plugins/itg-tracker/tests -q"
+  ```
+- **Platforms:** Windows and Mac. Linux is not supported, because nobody on the team uses it. It would need a Linux version of the evening task (`schedule.sh` is macOS only) and "Mac or Linux" where the skills say to use `python3`. Linux under WSL cannot reach Chrome at all.
 - **Check the manifests:** `claude plugin validate .`
 - **Release:** raise `version` in `plugins/itg-tracker/.claude-plugin/plugin.json`, so installed copies see the update, and add a line to the version table above.
 - **Try a change locally** before pushing: `/plugin marketplace add <path to this repository>`, then install from it.

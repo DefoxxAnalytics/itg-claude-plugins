@@ -49,7 +49,7 @@ To change the folders later, ask Claude, or run `tracker.py add-folder "<path>" 
 
 ## Every evening (optional)
 
-On the first run Claude offers a scheduled job, "Claude tracker update" (a scheduled task on Windows, a launchd job on a Mac). At 17:30 on weekdays (on Windows, at your next logon if you missed it; on a Mac, when it wakes if it was asleep), the job checks for anything new to post. Only then does it open a Claude window with the preview, which waits for your yes.
+On the first run Claude offers a scheduled job, "Claude tracker update" (a scheduled task on Windows, a launchd job on a Mac). At 17:30 on weekdays (on Windows, at your next logon if you missed it; on a Mac, when it wakes if it was asleep), the job checks for anything new to post. Only then does it open a Claude window with the preview, which waits for your yes. On Windows it does not start while the laptop runs on battery. Each check is logged, as counts only, in `~/.claude/tracker-update/scheduled.log`.
 
 - Set it up later on Windows: `pwsh -NoProfile -ExecutionPolicy Bypass -File "<skill folder>\schedule.ps1"`, optionally with `-At 18:00`. Remove it: the same command with `-Remove`.
 - On a Mac: `bash "<skill folder>/schedule.sh"`, optionally with `--at 18:00`. Remove it: the same command with `--remove`.

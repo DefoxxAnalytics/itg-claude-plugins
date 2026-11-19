@@ -38,8 +38,17 @@ claude="${TRACKER_CLAUDE:-$HOME/.local/bin/claude}"
 if [ -z "$claude" ]; then say "claude not found"; exit 1; fi
 
 # A .command file opens in a new Terminal window without asking for permission to control Terminal.
+# - It starts Claude in the settings folder, not the home folder: Claude remembers trust for the home folder for one
+#   session only, so the home folder asked "Do you trust this folder?" every evening. This folder is trusted once.
+# - When the person is signed in to Claude Code, it drops any ANTHROPIC_API_KEY that their shell profile sets, so the
+#   window uses their Claude login. A stale key there otherwise ends the run with "Invalid API key".
 window="$settings/open-claude.command"
-printf '#!/bin/bash\ncd "$HOME" || exit 1\nexec %q --chrome %q\n' "$claude" "$prompt" > "$window"
+{
+    printf '#!/bin/bash\n'
+    printf 'cd %q || exit 1\n' "$settings"
+    printf 'if security find-generic-password -s "Claude Code-credentials" >/dev/null 2>&1; then unset ANTHROPIC_API_KEY; fi\n'
+    printf 'exec %q --chrome %q\n' "$claude" "$prompt"
+} > "$window"
 chmod +x "$window"
 if [ "$dry" = 1 ]; then
     say "$pending pending: would open Claude (dry run)"

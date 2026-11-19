@@ -1,0 +1,10 @@
+{
+  "name": "versatex-pages",
+  "version": "1.0.0",
+  "description": "Builds Versatex-branded standalone HTML pages (guides, briefs, one-pagers) with the fonts and logo inside, ready for a phone, print or an email attachment, and checks them against the brand rules.",
+  "author": {
+    "name": "Defoxx Analytics"
+  },
+  "repository": "https://github.com/DefoxxAnalytics/itg-claude-plugins",
+  "keywords": ["versatex", "brand", "html", "standalone", "itg"]
+}

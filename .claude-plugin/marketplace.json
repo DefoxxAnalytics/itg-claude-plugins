@@ -13,6 +13,13 @@
       "description": "Keeps the ITG Progress tracker list current: finds the work projects you worked on in Claude Code, drafts new rows and status updates, fills in your projects' notebook pages, and writes through Chrome after your yes.",
       "category": "productivity",
       "tags": ["sharepoint", "status", "progress-tracker", "itg"]
+    },
+    {
+      "name": "versatex-pages",
+      "source": "./plugins/versatex-pages",
+      "description": "Builds Versatex-branded standalone HTML pages (guides, briefs, one-pagers) with the fonts and logo inside, ready for a phone, print or an email attachment, and checks them against the brand rules.",
+      "category": "productivity",
+      "tags": ["versatex", "brand", "html", "standalone"]
     }
   ]
 }

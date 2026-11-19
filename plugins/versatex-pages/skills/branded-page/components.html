@@ -1,0 +1,121 @@
+<!--
+  Versatex page kit: every component, in the order a page usually uses them.
+  Copy the parts a page needs into its body file. The body is what goes inside <main>:
+  no <html>, <head>, <body> or <script>. `page.py build` adds the band, fonts, logo and CSS.
+  Build this file to see every component:  python page.py build components.html --title "Components" --out components-preview.html
+-->
+
+<!-- Intro: eyebrow (topic · date), h1, lead (2–3 sentences), byline (optional). -->
+<div class="intro">
+  <div class="eyebrow">Page kit · Components</div>
+  <h1>Every component on one page</h1>
+  <p class="lead">A lead paragraph says what the page is for and what the reader should do with it, in two or three sentences. Links look like <a href="#steps">this</a>.</p>
+  <p class="byline">Author name</p>
+
+  <!-- Steps nav (optional): one link per section, numbered with hexes. Any number of steps fits. -->
+  <nav aria-label="Steps">
+    <ol class="steps">
+      <li><a href="#steps"><span class="hex-num">1</span>Sections and lists</a></li>
+      <li><a href="#callouts"><span class="hex-num">2</span>Callouts and commands</a></li>
+      <li><a href="#tables"><span class="hex-num">3</span>Tables</a></li>
+    </ol>
+  </nav>
+</div>
+
+<!-- Section: a numbered hex and an h2. Give the section an id and point aria-labelledby at the h2. -->
+<section id="steps" aria-labelledby="steps-h">
+  <div class="section-head"><span class="hex-num" aria-hidden="true">1</span><h2 id="steps-h">Sections and lists</h2></div>
+  <p>Body text is Roboto 400. Use <strong>strong</strong> for the few words that matter and <code>code</code> for commands, paths and field names. <span class="muted">Muted text</span> is for asides.</p>
+
+  <h3>A list with hex markers</h3>
+  <ul class="hex-list">
+    <li>Use it for points that stand on their own.</li>
+    <li>Keep each item to one or two sentences.</li>
+  </ul>
+
+  <h3>A numbered list</h3>
+  <ol class="plain">
+    <li>Use it when the order matters.</li>
+    <li>Each step starts with what to do.</li>
+  </ol>
+
+  <!-- A black hex for a secondary number; inline hexes mark a status or group (yellow, grey or black). -->
+  <p><span class="hex hex--yellow" aria-hidden="true"></span>In progress <span class="hex hex--grey" aria-hidden="true"></span>Completed <span class="hex hex--black" aria-hidden="true"></span>Other</p>
+</section>
+
+<section id="callouts" aria-labelledby="callouts-h">
+  <div class="section-head"><span class="hex-num hex-num--black" aria-hidden="true">2</span><h2 id="callouts-h">Callouts and commands</h2></div>
+
+  <!-- Callout: a yellow top rule around one important point. `facts` is an optional row of short labelled values. -->
+  <div class="callout">
+    <ul class="facts">
+      <li>Priority <strong>High</strong></li>
+      <li>Due <strong><time datetime="2026-12-01">1 Dec</time></strong></li>
+      <li>For <strong>Versatex</strong></li>
+    </ul>
+    <p>A callout holds the one thing the reader must not miss.</p>
+  </div>
+
+  <!-- Command with a copy button: the <pre> id and the button's data-copy must match. The kit adds the copy script. -->
+  <div class="cmd">
+    <pre id="cmd-example">/plugin install versatex-pages@itg-plugins</pre>
+    <button class="copy" type="button" data-copy="cmd-example">Copy</button>
+  </div>
+
+  <!-- Preview: a captioned block of sample output, such as an email or a message. -->
+  <figure class="preview">
+    <figcaption><span>What the reader sees</span><span>Example</span></figcaption>
+    <pre>Status 1 Dec 2026:
+• The first site is live.
+• Next: the remaining sites.</pre>
+  </figure>
+</section>
+
+<section id="tables" aria-labelledby="tables-h">
+  <div class="section-head"><span class="hex-num" aria-hidden="true">3</span><h2 id="tables-h">Tables</h2></div>
+
+  <!-- Key/value table: two columns, the first one narrower and medium weight. Always wrap tables in table-wrap. -->
+  <div class="table-wrap">
+    <table class="kv">
+      <thead><tr><th scope="col">Question</th><th scope="col">Answer</th></tr></thead>
+      <tbody>
+        <tr><td>Where does the file go?</td><td>Next to the source, or in Documents.</td></tr>
+        <tr><td>Does it need the network?</td><td>No. Fonts and logo are inside the file.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Wide table: `wide` keeps a minimum width so it scrolls sideways on a phone instead of squashing.
+       Group rows (`tr.group`) split it into labelled blocks with a count. Row headers use <th scope="row">.
+       Set column widths with <colgroup> in the body; no extra CSS needed. -->
+  <div class="table-wrap">
+    <table class="wide">
+      <colgroup><col style="width: 30%"><col style="width: 14%"><col style="width: 12%"><col style="width: 10%"><col></colgroup>
+      <thead><tr><th scope="col">Project</th><th scope="col">For</th><th scope="col">Priority</th><th scope="col">Due</th><th scope="col">Where it stands</th></tr></thead>
+      <tbody>
+        <tr class="group"><th colspan="5" scope="colgroup"><span class="hex hex--yellow" aria-hidden="true"></span>In progress <span class="count">2</span></th></tr>
+        <tr><th scope="row"><a href="#tables">Example project one</a></th><td>Versatex</td><td><strong>Critical</strong></td><td class="nowrap"><time datetime="2026-12-01">1 Dec</time></td><td>Built and in test with two people.</td></tr>
+        <tr><th scope="row">Example project two</th><td>XLC</td><td>Medium</td><td class="muted nowrap">Not set</td><td>Waiting on a decision about the first site.</td></tr>
+        <tr class="group"><th colspan="5" scope="colgroup"><span class="hex hex--grey" aria-hidden="true"></span>Completed <span class="count">1</span></th></tr>
+        <tr><th scope="row">Example project three</th><td>Corporate</td><td>Low</td><td class="nowrap"><time datetime="2026-11-18">18 Nov</time></td><td>In use.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="table-note">A table note explains the table, for example what the links open.</p>
+
+  <!-- A list inside a cell: cell-list. -->
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Project</th><th scope="col">Waiting on</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Example project two</th><td><ul class="cell-list"><li>A decision about the first site.</li><li>Licences for two people.</li></ul></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Footer: where the content came from, the date, and what links need. -->
+<footer>
+  <p>Source: the example data in this file, 19 Nov 2026.</p>
+  <p>Built with the versatex-pages kit.</p>
+</footer>

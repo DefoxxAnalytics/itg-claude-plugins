@@ -5,6 +5,7 @@ Claude Code plugins for the ITG team, published as a plugin marketplace (`itg-pl
 | Plugin | Version | What it does |
 |---|---|---|
 | [`itg-tracker`](plugins/itg-tracker) | 1.5.0 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
+| [`versatex-pages`](plugins/versatex-pages) | 1.0.0 | Builds Versatex-branded standalone HTML pages (guides, briefs, one-pagers) with the fonts and logo inside, ready for a phone, print or an email attachment. Its own guide is [its README](plugins/versatex-pages/README.md); the rest of this page is about `itg-tracker`. |
 
 New to the plugin? Start with the [quick start](QUICKSTART.md).
 
@@ -252,6 +253,7 @@ plugins/itg-tracker/
   tests/
     test_tracker.py                    tests for tracker.py
     test_notes.js                      tests for notes.js
+plugins/versatex-pages/                the page kit; see its README
 ```
 
 ## For maintainers
@@ -260,6 +262,7 @@ plugins/itg-tracker/
   ```
   python -m pytest plugins/itg-tracker/tests -q
   node --test plugins/itg-tracker/tests/test_notes.js
+  python -m pytest plugins/versatex-pages/tests -q
   ```
   On Windows two tests are skipped: the Mac path test, and the link test when your account cannot create symlinks.
 - **`tracker.py` follows the laptop's own path style** (`D:\Dev` on Windows, `/Users/<you>/Dev` on a Mac), so a change to it must pass on both. From Windows, the Mac-style path code can be checked in a Linux container (Docker Desktop, in PowerShell from the repository root):

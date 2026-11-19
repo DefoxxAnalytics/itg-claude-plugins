@@ -4,7 +4,7 @@ Claude Code plugins for the ITG team, published as a plugin marketplace (`itg-pl
 
 | Plugin | Version | What it does |
 |---|---|---|
-| [`itg-tracker`](plugins/itg-tracker) | 1.5.0 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
+| [`itg-tracker`](plugins/itg-tracker) | 1.5.1 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
 | [`versatex-pages`](plugins/versatex-pages) | 1.0.0 | Builds Versatex-branded standalone HTML pages (guides, briefs, one-pagers) with the fonts and logo inside, ready for a phone, print or an email attachment. Its own guide is [its README](plugins/versatex-pages/README.md); the rest of this page is about `itg-tracker`. |
 
 New to the plugin? Start with the [quick start](QUICKSTART.md).
@@ -208,6 +208,7 @@ then `/plugin` lists what can be updated. Start a new session after updating.
 
 | Version | What came with it |
 |---|---|
+| 1.5.1 | The 17:30 task opens Claude in the settings folder, so the folder is trusted once instead of asked about every evening; on a Mac it uses your Claude login even when your shell sets an API key |
 | 1.5.0 | Works on a Mac: folder paths in the Mac's own style, `python3`, and a Mac version of the 17:30 task |
 | 1.4.1 | The notes flow refuses to rewrite a page edited since its last rewrite; `tracker.py projects` finds projects nested below a work folder; saving settings survives a briefly locked file |
 | 1.4.0 | The `project-notes` skill; `tracker.py projects` |
@@ -219,6 +220,8 @@ then `/plugin` lists what can be updated. Start a new session after updating.
 | What you see | What to do |
 |---|---|
 | "No settings yet" | Run `/itg-tracker:tracker-update` once; it sets you up. |
+| The evening window asks "Do you trust this folder?" | Answer "Yes, I trust this folder" once. It opens in `~/.claude/tracker-update`, which Claude then remembers. |
+| The evening window says "Invalid API key" or "Not logged in" | Claude in a Terminal window needs its own sign-in: open Terminal, run `claude auth login`, and finish the sign-in in the browser. |
 | Chrome or the extension does not answer | Open Chrome, check the Claude in Chrome extension is connected, and run the skill again. |
 | SharePoint shows a sign-in page | Sign in yourself in that tab, then run the skill again. Claude never types credentials. |
 | "Someone else is signed in" | The SharePoint account is not the one in your settings. Sign in as yourself, or ask Claude to update who you are. |

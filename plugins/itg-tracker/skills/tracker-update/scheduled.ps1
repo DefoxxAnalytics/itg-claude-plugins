@@ -24,5 +24,5 @@ $terminal = Join-Path $env:LOCALAPPDATA 'Microsoft\WindowsApps\wt.exe'
 $claude = Join-Path $env:USERPROFILE '.local\bin\claude.exe'
 if (-not (Test-Path $claude)) { $claude = (Get-Command claude -ErrorAction SilentlyContinue).Source }
 if (-not $claude) { Write-Log 'claude not found'; exit 1 }
-Start-Process -FilePath $terminal -ArgumentList @('-d', $env:USERPROFILE, $claude, $prompt)
+Start-Process -FilePath $terminal -ArgumentList @('-d', $settings, $claude, $prompt)
 Write-Log "$count pending: opened Claude"

@@ -2,6 +2,8 @@
 
 A Claude Code plugin with two skills. `tracker-update` keeps the ITG SharePoint list "Progress tracker list" (`/sites/ITG`) current with your own work projects. `project-notes` fills in the ITG Notebook pages of your own work items.
 
+New to it? Start with the [quick start](../../QUICKSTART.md). The [repository README](../../README.md) is the full guide.
+
 ## What it does
 
 1. Finds the work projects you worked on in Claude Code since its last run. It reads only each session's working folder, never the conversation, and only folders you named as work.

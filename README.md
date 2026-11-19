@@ -6,6 +6,8 @@ Claude Code plugins for the ITG team, published as a plugin marketplace (`itg-pl
 |---|---|---|
 | [`itg-tracker`](plugins/itg-tracker) | 1.5.0 | Keeps the ITG SharePoint "Progress tracker list" current with the work projects you worked on in Claude Code, and fills in each project's page in the ITG Notebook. It drafts, shows you a preview, and writes through Chrome only after your yes. |
 
+New to the plugin? Start with the [quick start](QUICKSTART.md).
+
 ## Contents
 
 - [What the plugin gives you](#what-the-plugin-gives-you)
